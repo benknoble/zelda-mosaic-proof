@@ -1,0 +1,16 @@
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.log
+*.pdf
+*.out
+*.bcf
+*.run.xml
+*.toc
+*.lof
+*.lot
+*.acn
+*.acr
+*.alg
+*.ist
