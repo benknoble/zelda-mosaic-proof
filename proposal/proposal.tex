@@ -97,7 +97,39 @@ image.
 
 \subsection{Motivation}
 
-% comments on proving properties of algorithms, MATLAB code, etc.
+There are several factors that motivate our interest in this particular
+algorithm, its particular implementation, and its properties.
+
+Personally, it is a project we've already invested in, and one which we enjoy
+studying.
+
+Academically, it presents several unique opportunities. First, as far as we can
+tell, there have been no studies on either termination-properties of mosaic
+algorithms or of MATLAB code. Further, we have found no attempt to formalize
+details of the MATLAB programming language\footnote{This may in part be due to
+the proprietary, closed-source nature of MATLAB\@. Nevertheless, we hope to make
+an attempt, though it must be grounded in the knowledge that any proof can only
+hold if indeed the MATLAB environment faithfully implements the semantics it
+claims. There are formalizations of a particular MATLAB toolkit known as
+Stateflow~\cite{Hamon_2005,Hamon_2007} but none that we have found for general
+MATLAB programming.}. Thus already in studying this particularly narrow problem
+we have an opportunity to extend the space of studies in formal-methods and
+their applications to the programmer and their programs.
+
+Second, we as students of these formal methods lack experience in formalizing
+these details about specific algorithms. The Logical Foundations
+text~\cite{Pierce:SF1} has proven a great resource in learning about these
+principles on small examples, and our study of \texttt{zelda-mosaic} will make
+an excellent opportunity to extend our practical knowledge of the field.
+
+Lastly, termination and its decidability has always been a study of interest to
+the logician, the mathematician, and the computer scientist. From Hilbert's
+\textit{Entscheidungsproblem} to Turing's Halting problem~\cite{Cook_2011}, the
+world of algorithms is generally concerned with what is, indeed, computable.
+While we make no attempt here to prove termination of arbitrary or even
+restricted MATLAB programs (likely a Sisyphean task), we can at least attempt to
+push the boundaries of the undecidable Halting problem for this specific
+program.
 
 \section{Algorithm Details}\label{S:AlgDet}
 
