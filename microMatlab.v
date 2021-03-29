@@ -89,9 +89,18 @@ Module Syntax.
     | AssignS (var: var_name) (value: exp)
     | IndexedAssignS (var: var_name) (index: exp) (value: exp)
     | SeqS (ss: list statement)
-    | ForLoopS (var: var_name) (range: exp) (body: statement)
+    | WhileS (cond: exp) (body: statement)
     | IfThenElseS (cond: exp) (thenS: statement) (elseS: statement)
     .
+
+  Definition forloop (var: var_name) (range: exp) (body: statement): statement.
+    (* := *)
+    (* SeqS [ *)
+    (*   (1* todo empty range? *1) *)
+    (*   AssignS var (first of range); *)
+    (*   WhileS (values left in range) (SeqS [body; AssignS var (next of range)]) *)
+    (* ]. *)
+  Admitted.
 
 End Syntax.
 
