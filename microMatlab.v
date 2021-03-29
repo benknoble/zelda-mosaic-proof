@@ -3,6 +3,7 @@
 Require Import Coq.Unicode.Utf8.
 Require Import Coq.Program.Program.
 Require Import Floats.
+Require Import ZArith.
 Require Import Coq.Strings.String.
 Require Import Coq.Lists.List.
 Import ListNotations.
@@ -14,8 +15,7 @@ Module Syntax.
 
   Inductive exp: Type :=
     (* simple literals *)
-    (* TODO what int type? *)
-    (* | IntLiteral: int → exp *)
+    | IntLiteral: Z → exp
     | FloatLiteral: PrimFloat.float → exp
 
     (* basic arithmetic *)
@@ -56,8 +56,8 @@ Module Syntax.
   Definition ndims: exp → exp := LengthExpr ∘ SizeExpr.
 
   Definition numberp: exp → Prop := λ e,
-    (* (∃ z, e = IntLiteral z) *)
-    (* ∨ *)
+    (∃ z, e = IntLiteral z)
+    ∨
     (∃ f, e = FloatLiteral f).
 
   Definition indexp: exp → Prop. Admitted.
