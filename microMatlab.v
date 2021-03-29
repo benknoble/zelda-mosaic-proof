@@ -62,8 +62,11 @@ Module Syntax.
 
   Definition indexp: exp → Prop. Admitted.
 
-  Definition truep: exp → Prop. Admitted. (* IntLiteral, equal to 1? or just not equal to 0? *)
-  Definition falsep: exp → Prop. Admitted. (* IntLiteral, equal to 0 *)
+  Definition falsep: exp → Prop. Admitted.
+  (* IntLiteral, equal to 0
+   * or Empty Matrix
+   * or Matrix containing something false *)
+  Definition truep: exp → Prop := not ∘ falsep.
 
   Definition vectorp: exp → Prop := λ e,
     ∃ vs, (e = MatrixLiteral vs
