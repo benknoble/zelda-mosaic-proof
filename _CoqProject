@@ -1,0 +1,4 @@
+-Q . microMatlab
+-arg -w
+-arg all
+microMatlab.v
