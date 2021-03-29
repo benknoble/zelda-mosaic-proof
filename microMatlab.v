@@ -10,6 +10,13 @@ Import ListNotations.
 
 Module Syntax.
 
+  (* TODO
+   * - matrices
+   * - define values
+   * - write exp_eval
+   * - define state (FMapAVL on Strings to values)
+   * - define semantics *)
+
   Definition var_name: Type := string.
   Definition matrix_t: Type → Type := list.
 
