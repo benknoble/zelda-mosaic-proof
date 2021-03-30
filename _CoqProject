@@ -2,3 +2,4 @@
 -arg -w
 -arg all
 microMatlab.v
+LibMatrix.v
