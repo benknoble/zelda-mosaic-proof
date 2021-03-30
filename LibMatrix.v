@@ -20,7 +20,7 @@ Fixpoint matrix (A: Type) (dims: list nat) :=
 (* Import VectorDef.VectorNotations. *)
 (* Check [[[1;2;3]; [1;2;3]]]: matrix nat [1;2;3]. *)
 
-Import VectorDef.VectorNotations.
+Open Scope vector_scope.
 Definition v1: Vector.t nat 3 := [1; 2; 3].
 Definition m1: matrix nat [2; 3]%list := [v1; v1].
 Compute [[m1]; [m1]]: matrix nat [2;1;2;3]%list.
@@ -28,67 +28,64 @@ Compute Fin.of_nat 0 2.
 Compute Vector.nth [[m1]; [m1]] (Fin.F1).
 Close Scope vector_scope.
 
-(* want to support
- * - index by a single number? How does this work for non-vectors?
- * - by dimension
+(* TODO want to support
  * - index by a range, including the special range : meaning everything *)
 
 (* Compute Fin.of_nat 2 3. *)
 (* Check Vector.nth. *)
 
-(* Definition product (dims: list nat) := List.fold_left Nat.mul dims 1. *)
+Definition product (dims: list nat) := List.fold_right Nat.mul 1 dims.
 
-(* Definition linearize {A: Type} {dims: list nat} (m: matrix A dims): matrix A [product dims]. *)
-(* Proof. *)
-(*   generalize dependent m. *)
-(*   induction dims. *)
-(*   - intros. *)
-(*     assert (product [] = 1) by reflexivity. rewrite H; clear H. *)
-(*     exact (Vector.cons A m 0 (Vector.nil A)). *)
-(*   - intros. *)
-(*     (1* why so hard? *1) *)
-(*     assert (product (a::dims) = a * product dims). *)
-(*     { unfold product. *)
-(*       assert (a::dims = [a] ++ dims) by reflexivity. rewrite H; clear H. *)
-(*       rewrite List.fold_left_app. *)
-(*       assert (List.fold_left Nat.mul [a] 1 = a). admit. admit. } *)
-(* Abort. *)
+Fixpoint concat {A} {n m: nat} (v: Vector.t (Vector.t A m) n): Vector.t A (n * m) :=
+  match v with
+  | []%vector => []%vector
+  | (x::xs)%vector => append x (concat xs)
+  end.
 
-Compute @Vector.fold_left (list nat) (list nat) (@List.app nat) [] _ [[1]%list; [2]%list; [3]%list]%vector.
+(* Check List.concat. *)
+(* Check @concat. *)
+(* Compute concat m1. *)
 
-Definition linearize {A: Type} {dims: list nat} (m: matrix A dims): list A.
-Proof.
-  induction dims.
-  - unfold matrix in m. apply [m].
-  - simpl in m.
-    apply (Vector.map IHdims) in m.
-    apply (Vector.fold_left (@List.app A) [] m).
-Defined.
+Fixpoint linearize {A: Type} {dims: list nat}: matrix A dims -> matrix A [product dims] :=
+  match dims with
+  | [] => fun a => [a]%vector
+  | head::tail => fun a => concat (Vector.map (linearize (dims := tail)) a)
+  end.
 
-(* Open Scope vector_scope. *)
-(* Fixpoint linearize' {A: Type} {dims: list nat} (m: matrix A dims): list A := *)
-(*   match m with *)
-(*   | a => [a]%list *)
-(*   | h::t => (@linearize' A (hd dims) h) ++ (Vector.map (@linearize' A tl dims) t) *)
-(*   end. *)
-(* Close Scope vector_scope. *)
+(* Check @linearize. *)
 
-(* Fixpoint linearize' {A: Type} {dims: list nat} (m: matrix A dims): list A := *)
-(*   match dims with *)
-(*   | [] => [] *)
-(*   | h::t => Vector.fold_left *)
-(*             (@app A) *)
-(*             [] *)
-(*             (Vector.map linearize' (m: Vector.t (matrix (list A) t) h)) *)
-(*   end. *)
-
-Compute linearize ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector.
+(* Compute linearize ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector (1* : matrix nat [12] *1). *)
 
 Definition nth {A: Type} {dims: list nat} (m: matrix A dims) (idx: nat): option A
   := match dims with
      | [] => None
-     | _ => List.nth_error (linearize m) (idx - 1)
+     | _ =>
+         let m' := linearize m
+         in match Fin.of_nat (idx - 1) (product dims) with
+            | inleft H => Some (Vector.nth m' H)
+            | _ => None
+            end
      end.
 
-Compute List.map (λ n, nth ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector n)
-                 [1;2;3;4;5;6;7;8;9;10;11;12].
+(* Compute List.map (λ n, nth ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector n) *)
+(*                  [1;2;3;4;5;6;7;8;9;10;11;12]. *)
+
+Fixpoint get {A: Type} {dims: list nat} (m: matrix A dims) (indexes: list nat): option A :=
+  if Nat.eqb (length dims) (length indexes)
+  then match dims, indexes return matrix A dims → option A with
+       | [], [] => λ a, Some a
+       | dimh::dimt, idxh::idxt => λ m',
+           match Fin.of_nat (idxh - 1) dimh with
+           | inleft H => @get A dimt (Vector.nth m' H) idxt
+           | _ => None
+           end
+       | _, _ => λ _, None
+       end m
+  else None.
+
+(* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector []. *)
+(* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [1]. *)
+(* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [1;2]. *)
+(* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [1;2;3]. *)
+(* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [1;2;3;4;5]. *)
+(* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [2;1;2;3]. *)
