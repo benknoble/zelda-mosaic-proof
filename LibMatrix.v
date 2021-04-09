@@ -1,69 +1,232 @@
 Require Import Coq.Unicode.Utf8.
-Require Export Vector.
-Import VectorNotations.
 Require Import List.
 Import ListNotations.
 
-(* only accepts even numbers of dimensions, and gets messy? *)
-(* Definition matrix {A: Type} (rows cols: nat) := *)
-(*   Vector.t (Vector.t A cols) rows. *)
+Inductive matrix_content (A: Type) : Type :=
+  | Scalar: A → matrix_content A
+  | Matrix: list (matrix_content A) → matrix_content A
+.
 
-Fixpoint matrix (A: Type) (dims: list nat) :=
-  match dims with
-  | [] => A
-  | head::tail => Vector.t (matrix A tail) head
+Arguments Scalar {A}.
+Arguments Matrix {A} _.
+
+Record matrix (A: Type) : Type := {
+  shape: list nat;
+  contents: matrix_content A
+}.
+
+Arguments shape {A} _.
+Arguments contents {A} _.
+
+(* Check matrix. *)
+
+(* Check {| shape := [1;2;3]; contents := Matrix [ *)
+(*   Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3]; *)
+(*           Matrix [Scalar 4; Scalar 5; Scalar 6]]]|}. *)
+
+Check List.Forall.
+Check List.Forall_forall.
+Check List.Forall_nth.
+Check List.Forall_app.
+Check List.Forall_elt.
+Check List.Forall_rev.
+(* and a bunch more *)
+
+Fixpoint well_formed' {A: Type} (shape: list nat) (contents: matrix_content A): Prop :=
+  match shape with
+  | [] => match contents with
+          | Scalar _ => True
+          | Matrix _ => False
+          end
+  | h::t => match contents with
+            | Matrix ms => length ms = h ∧ Forall (well_formed' t) ms
+            | Scalar _ => False
+            end
   end.
 
-Check matrix.
+Definition well_formed {A: Type} (m: matrix A) := well_formed' (shape m) (contents m).
 
-(* Check matrix nat [1;2;3]. *)
-(* Import VectorDef.VectorNotations. *)
-(* Check [[[1;2;3]; [1;2;3]]]: matrix nat [1;2;3]. *)
-(* Definition v1: Vector.t nat 3 := [1; 2; 3]. *)
-(* Definition m1: matrix nat [2; 3]%list := [v1; v1]. *)
-(* Compute [[m1]; [m1]]: matrix nat [2;1;2;3]%list. *)
-(* Compute Fin.of_nat 0 2. *)
-(* Compute Vector.nth [[m1]; [m1]] (Fin.F1). *)
-(* Close Scope vector_scope. *)
+Ltac wf_easy H :=
+  unfold well_formed;
+  repeat (simpl; split; try reflexivity; (* simplify well_formed'/length, split the
+                                            conjunct case, solve the length case *)
+  apply Forall_forall; simpl; (* convert the Forall to In implies P, simplify In *)
+  intros x H; decompose sum H; clear H; (* destruct all the In cases *)
+  subst (* use the hypothesis to simplify the match arms, which either gets us
+  another well_formed' invocation (repeat!) or a "True", which (accidentally)
+  gets handled by the split near the top *)).
+
+Example wf_1: well_formed {| shape := [1;2;3]; contents := Matrix [
+                Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3];
+                        Matrix [Scalar 4; Scalar 5; Scalar 6]]] |}.
+Proof.
+  wf_easy H.
+
+  (* (1* old tedious proof *1) *)
+  (* unfold well_formed. *)
+  (* simpl; split; try reflexivity. *)
+  (* apply Forall_forall; simpl. intros x [H | []]; subst. *)
+  (* simpl; split; try reflexivity. *)
+  (* apply Forall_forall; simpl. intros x [H | [H | []]]; subst. *)
+  (* all: simpl; split; try reflexivity. *)
+  (* all: apply Forall_forall; simpl. *)
+  (* all: intros x [H | [H | [H | []]]]; now subst x. *)
+Qed.
+
+Theorem wf_0_broken: ∀ t, @well_formed nat {| shape := 0::t; contents := Matrix [] |}.
+Proof. wf_easy H. Qed.
+
+Fixpoint compute_shape {A: Type} (m: matrix_content A): list nat :=
+  match m with
+  | Scalar _ => []
+  | Matrix [] => [0]
+  | Matrix ((m::t) as ms) => (length ms)::(compute_shape m)
+  end.
+
+(* Compute compute_shape (Matrix [Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3]; *)
+(*                                        Matrix [Scalar 4; Scalar 5; Scalar 6]]]). *)
+
+(* Theorem compute_shape_wf_correct: ∀ A (m: matrix A), *)
+(*   well_formed m → *)
+(*   compute_shape (contents m) = shape m. *)
+(* Proof. *)
+(*   intros. destruct m as [shape contents]; simpl. *)
+(*   induction contents; destruct shape; try now inversion H. *)
+(*   destruct l; inversion H; subst. *)
+(*   - simpl in *. (1* shape0 can be anything! see wf_2 *1) *)
+(* Abort. *)
+
+Theorem compute_shape_wf_normalizes: ∀ A (m: matrix A),
+  well_formed m →
+  well_formed {| shape := compute_shape (contents m); contents := contents m |}.
+Proof.
+  destruct m as [shape contents]; simpl.
+  intros.
+  induction shape; destruct contents; try now inversion H.
+  destruct l.
+  - wf_easy H0.
+  - wf_easy H0.
+    * inversion H; subst.
+      apply Forall_inv in H1.
+      destruct x, shape0; try contradiction.
+      + wf_easy H0.
+      + (* destruct H1; subst. *) admit.
+    *
+      (* since l is non-empty, a is non-zero; also, the shape of each thing in l
+       * is the same *)
+      replace (compute_shape m) with (compute_shape x) by admit.
+      (* now this is the same case as above? *)
+      inversion H; subst; clear H.
+      inversion H2; subst; clear H2. clear H3.
+      rewrite Forall_forall in H4. apply H4 in H1. clear H4.
+      (* esp. after "Forall_inv in H1" *)
+      destruct x, shape0; try contradiction.
+      + wf_easy H0.
+      + (* destruct H1; subst. *) admit.
+Admitted.
 
 (* TODO want to support
- * - index by a range, including the special range : meaning everything *)
+ * - index by a range, including the special range ":" meaning everything *)
 
-(* Compute Fin.of_nat 2 3. *)
-(* Check Vector.nth. *)
+(* Check List.nth. *)
+(* Check List.nth_error. *)
 
-Definition product (dims: list nat) := List.fold_right Nat.mul 1 dims.
-
-Fixpoint concat {A} {n m: nat} (v: Vector.t (Vector.t A m) n): Vector.t A (n * m) :=
-  match v with
-  | []%vector => []%vector
-  | (x::xs)%vector => append x (concat xs)
-  end.
+Definition product (shape: list nat) := List.fold_right Nat.mul 1 shape.
 
 (* Check List.concat. *)
-(* Check @concat. *)
-(* Compute concat m1. *)
 
-Fixpoint linearize {A: Type} {dims: list nat}: matrix A dims -> matrix A [product dims] :=
-  match dims with
-  | [] => fun a => [a]%vector
-  | head::tail => fun a => concat (Vector.map (linearize (dims := tail)) a)
+Require Import Lia.
+
+Theorem concat_length_mult: ∀ A (xss: list (list A)) n,
+  Forall (λ xs, length xs = n) xss →
+  length (concat xss) = n * length xss.
+Proof.
+  induction xss; intros.
+  - simpl. lia.
+  - simpl. inversion H; subst.
+    rewrite app_length.
+    rewrite (IHxss (length a)); lia || assumption.
+Qed.
+
+Theorem wf_all_length_same: ∀ A (ms: list (matrix_content A)) h n t,
+  well_formed {| shape := h::n::t; contents := Matrix ms |} →
+  Forall (λ m', ∃ ms', m' = Matrix ms' ∧ length ms' = n) ms.
+Proof.
+  induction ms.
+  - (* the conclusion is vacuously true *)
+    intros. apply Forall_nil.
+  - intros. apply Forall_cons.
+    * clear IHms. destruct a.
+      + (* contradiction: no-longer well-formed *)
+        inversion H; clear H; clear H0.
+        now inversion H1.
+      + exists l. split; try reflexivity.
+        inversion H; clear H0; clear H.
+        apply Forall_inv in H1.
+        now inversion H1.
+    * apply (IHms (h-1) n t).
+      unfold well_formed; simpl.
+      inversion H; clear H.
+      split.
+      + simpl in H0; lia.
+      + clear H0. rewrite Forall_forall in H1. apply Forall_forall.
+        intros. assert (In x (a::ms)) by (simpl; now right).
+        clear H. apply H1 in H0. clear H1.
+        destruct x; now inversion H0.
+Qed.
+
+Fixpoint linearize' {A: Type} (contents: matrix_content A): list A :=
+  match contents with
+  | Scalar a => [a]
+  | Matrix ms => flat_map linearize' ms
+      (* equivalent to concat (map linearize' ms *)
+      (* cf. flat_map_concat_map *)
   end.
 
-(* Check @linearize. *)
+Definition linearize {A: Type} (m: matrix A): matrix A :=
+  {| shape := [product (compute_shape (contents m))];
+     contents := Matrix (map Scalar (linearize' (contents m))) |}.
 
-(* Compute linearize ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector (1* : matrix nat [12] *1). *)
+(* Compute linearize {| shape := [1;2;3]; contents := Matrix [ *)
+(*                 Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3]; *)
+(*                         Matrix [Scalar 4; Scalar 5; Scalar 6]]]|}. *)
 
-Definition nth {A: Type} {dims: list nat} (m: matrix A dims) (idx: nat): option A
-  := match dims with
-     | [] => None
-     | _ =>
-         let m' := linearize m
-         in match Fin.of_nat (idx - 1) (product dims) with
-            | inleft H => Some (Vector.nth m' H)
-            | _ => None
-            end
-     end.
+Theorem linearize'_product: ∀ A (m: matrix_content A),
+  length (linearize' m) = product (compute_shape m).
+Proof.
+  (* (1* stuff from an old proof that might be relevant *1) *)
+  (*     destruct shape0. *)
+  (*     + inversion H1; subst; try reflexivity. *)
+  (*       destruct x. *)
+  (*       -- simpl. admit. (1* induction l needed *1) *)
+  (*       -- destruct H0. *)
+  (*     + simpl. rewrite PeanoNat.Nat.mul_assoc. *)
+  (*       apply wf_all_length_same in H. *)
+  (*       rewrite (concat_length_mult _ _ n). *)
+  (*       -- rewrite (PeanoNat.Nat.mul_comm _ n). *)
+  (*          admit. (1* induction? length (map linearize' l) = length * product shape0 *1) *)
+  (*       -- (1* need relationship with produce, linearize', length? *1) *)
+Admitted.
+
+Theorem linearize_wf: ∀ A (m: matrix A),
+  well_formed m → well_formed (linearize m).
+Proof.
+  intros. destruct m as [shape contents].
+  induction contents; destruct shape; try now inversion H.
+  - clear H.
+    unfold linearize; simpl.
+    wf_easy H.
+  - inversion H; subst.
+    unfold linearize. rewrite <- linearize'_product. simpl.
+    unfold well_formed; simpl; split.
+    * now rewrite map_length.
+    * apply Forall_forall; intros.
+      rewrite in_map_iff in H0. decompose record H0; clear H0.
+      now subst.
+Qed.
+
+Definition nth {A: Type} (m: matrix A) (idx: nat): option A :=
+  nth_error (linearize' (contents m)) idx.
 
 (* Compute List.map (λ n, nth ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector n) *)
 (*                  [1;2;3;4;5;6;7;8;9;10;11;12]. *)
