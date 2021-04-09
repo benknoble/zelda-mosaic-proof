@@ -14,19 +14,17 @@ Fixpoint matrix (A: Type) (dims: list nat) :=
   | head::tail => Vector.t (matrix A tail) head
   end.
 
-(* Check matrix. *)
+Check matrix.
 
 (* Check matrix nat [1;2;3]. *)
 (* Import VectorDef.VectorNotations. *)
 (* Check [[[1;2;3]; [1;2;3]]]: matrix nat [1;2;3]. *)
-
-Open Scope vector_scope.
-Definition v1: Vector.t nat 3 := [1; 2; 3].
-Definition m1: matrix nat [2; 3]%list := [v1; v1].
-Compute [[m1]; [m1]]: matrix nat [2;1;2;3]%list.
-Compute Fin.of_nat 0 2.
-Compute Vector.nth [[m1]; [m1]] (Fin.F1).
-Close Scope vector_scope.
+(* Definition v1: Vector.t nat 3 := [1; 2; 3]. *)
+(* Definition m1: matrix nat [2; 3]%list := [v1; v1]. *)
+(* Compute [[m1]; [m1]]: matrix nat [2;1;2;3]%list. *)
+(* Compute Fin.of_nat 0 2. *)
+(* Compute Vector.nth [[m1]; [m1]] (Fin.F1). *)
+(* Close Scope vector_scope. *)
 
 (* TODO want to support
  * - index by a range, including the special range : meaning everything *)
@@ -89,3 +87,8 @@ Fixpoint get {A: Type} {dims: list nat} (m: matrix A dims) (indexes: list nat): 
 (* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [1;2;3]. *)
 (* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [1;2;3;4;5]. *)
 (* Compute get ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector [2;1;2;3]. *)
+
+Inductive range: Type :=
+  | Scalar: nat → range
+  | Subrange: nat → nat → range
+  | Fullrange.
