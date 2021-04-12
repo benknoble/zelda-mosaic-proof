@@ -131,34 +131,38 @@ Fixpoint compute_shape {A: Type} (m: matrix_content A): list nat :=
 (*   - simpl in *. (1* shape0 can be anything! see wf_2 *1) *)
 (* Abort. *)
 
+Lemma wf_sub_same_shape: ∀ A shape (m: matrix_content A) (ms: list (matrix_content A)),
+  well_formed' shape m →
+  Forall (well_formed' shape) ms →
+  Forall (λ m', compute_shape m' = compute_shape m) ms.
+Proof.
+Admitted.
+
 Theorem compute_shape_wf_normalizes: ∀ A (m: matrix A),
   well_formed m →
   well_formed {| shape := compute_shape (contents m); contents := contents m |}.
 Proof.
   destruct m as [shape contents]; simpl.
-  intros.
-  induction shape; destruct contents; try now inversion H.
-  destruct l.
-  - wf_easy H0.
-  - wf_easy H0.
-    * inversion H; subst.
-      apply Forall_inv in H1.
-      destruct x, shape0; try contradiction.
-      + wf_easy H0.
-      + (* destruct H1; subst. *) admit.
-    *
-      (* since l is non-empty, a is non-zero; also, the shape of each thing in l
-       * is the same *)
-      replace (compute_shape m) with (compute_shape x) by admit.
-      (* now this is the same case as above? *)
-      inversion H; subst; clear H.
-      inversion H2; subst; clear H2. clear H3.
-      rewrite Forall_forall in H4. apply H4 in H1. clear H4.
-      (* esp. after "Forall_inv in H1" *)
-      destruct x, shape0; try contradiction.
-      + wf_easy H0.
-      + (* destruct H1; subst. *) admit.
-Admitted.
+  generalize dependent shape.
+  mc_ind contents; intros shape; destruct shape; try wf_easy; try easy.
+  simpl. intros [].
+  destruct ms; try now wf_easy.
+  simpl. split; try reflexivity.
+  inversion H1; subst; clear H1.
+  apply Forall_forall; intros.
+  rewrite Forall_forall in H.
+  specialize H with (x := x).
+  assert (In x (m::ms)) by auto.
+  apply H with shape0 in H0; clear H.
+  all: cycle 1.
+  - inversion H0; subst; clear H0; try assumption.
+    rewrite Forall_forall in H5; auto.
+  - replace (compute_shape m) with (compute_shape x); try assumption.
+    clear H0.
+    inversion H1; subst; clear H1; try reflexivity.
+    apply wf_sub_same_shape with (ms := ms) in H4; try assumption.
+    rewrite Forall_forall in H4; auto.
+Qed.
 
 (* TODO want to support
  * - index by a range, including the special range ":" meaning everything *)
