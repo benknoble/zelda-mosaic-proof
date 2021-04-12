@@ -10,6 +10,39 @@ Inductive matrix_content (A: Type) : Type :=
 Arguments Scalar {A}.
 Arguments Matrix {A} _.
 
+(* Parameter P: matrix_content nat → Prop. *)
+(* Parameter ms: list (matrix_content nat). *)
+(* Parameter f: ∀ m: matrix_content nat, P m. *)
+(* Check list_ind (Forall P) (Forall_nil P) (λ h t, Forall_cons h (f h)) ms. *)
+
+Definition matrix_content_ind_strong:
+  ∀ {A: Type} (P: matrix_content A → Prop),
+  (∀ a: A, P (Scalar a)) →
+  (∀ ms: list (matrix_content A), Forall P ms → P (Matrix ms)) →
+  (∀ m: matrix_content A, P m)
+  := λ A P PScalar PSubmatrix,
+  fix f (m: matrix_content A)
+  := match m with
+     | Scalar a => PScalar a
+     | Matrix ms => PSubmatrix ms (list_ind (Forall P) (Forall_nil P) (λ h t, Forall_cons h (f h)) ms)
+     end.
+
+Ltac mc_ind x := induction x using matrix_content_ind_strong.
+
+(* Example mc_ind_ex: ∀ mc: matrix_content nat, *)
+(*   match mc with *)
+(*   | Scalar n => n ≥ 0 *)
+(*   | Matrix ms => True (1* stating this part seems hard, so let's do something trivial *1) *)
+(*   end. *)
+(* Proof. *)
+(*   mc_ind mc. *)
+(*   (1* induction mc using matrix_content_ind_strong. *1) *)
+(*   - apply le_0_n. *)
+(*   - (1* induction hypothesis! *1) *)
+(*     Check H. *)
+(*     exact I. *)
+(* Qed. *)
+
 Record matrix (A: Type) : Type := {
   shape: list nat;
   contents: matrix_content A
