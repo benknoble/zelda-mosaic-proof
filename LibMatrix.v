@@ -46,12 +46,14 @@ Fixpoint well_formed' {A: Type} (shape: list nat) (contents: matrix_content A): 
 
 Definition well_formed {A: Type} (m: matrix A) := well_formed' (shape m) (contents m).
 
-Ltac wf_easy H :=
+Hint Unfold well_formed: core.
+
+Ltac wf_easy :=
   unfold well_formed;
   repeat (simpl; split; try reflexivity; (* simplify well_formed'/length, split the
                                             conjunct case, solve the length case *)
   apply Forall_forall; simpl; (* convert the Forall to In implies P, simplify In *)
-  intros x H; decompose sum H; clear H; (* destruct all the In cases *)
+  (let H := fresh "H" in intros x H; decompose sum H; clear H); (* destruct all the In cases *)
   subst (* use the hypothesis to simplify the match arms, which either gets us
   another well_formed' invocation (repeat!) or a "True", which (accidentally)
   gets handled by the split near the top *)).
@@ -60,7 +62,7 @@ Example wf_1: well_formed {| shape := [1;2;3]; contents := Matrix [
                 Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3];
                         Matrix [Scalar 4; Scalar 5; Scalar 6]]] |}.
 Proof.
-  wf_easy H.
+  wf_easy.
 
   (* (1* old tedious proof *1) *)
   (* unfold well_formed. *)
@@ -74,7 +76,7 @@ Proof.
 Qed.
 
 Theorem wf_0_broken: ∀ t, @well_formed nat {| shape := 0::t; contents := Matrix [] |}.
-Proof. wf_easy H. Qed.
+Proof. wf_easy. Qed.
 
 Fixpoint compute_shape {A: Type} (m: matrix_content A): list nat :=
   match m with
@@ -215,7 +217,7 @@ Proof.
   induction contents; destruct shape; try now inversion H.
   - clear H.
     unfold linearize; simpl.
-    wf_easy H.
+    wf_easy.
   - inversion H; subst.
     unfold linearize. rewrite <- linearize'_product. simpl.
     unfold well_formed; simpl; split.
