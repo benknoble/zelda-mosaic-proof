@@ -24,13 +24,13 @@ Arguments contents {A} _.
 (*   Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3]; *)
 (*           Matrix [Scalar 4; Scalar 5; Scalar 6]]]|}. *)
 
-Check List.Forall.
-Check List.Forall_forall.
-Check List.Forall_nth.
-Check List.Forall_app.
-Check List.Forall_elt.
-Check List.Forall_rev.
-(* and a bunch more *)
+(* Check List.Forall. *)
+(* Check List.Forall_forall. *)
+(* Check List.Forall_nth. *)
+(* Check List.Forall_app. *)
+(* Check List.Forall_elt. *)
+(* Check List.Forall_rev. *)
+(* (1* and a bunch more *1) *)
 
 Fixpoint well_formed' {A: Type} (shape: list nat) (contents: matrix_content A): Prop :=
   match shape with
