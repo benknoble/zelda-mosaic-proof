@@ -197,7 +197,7 @@ Corollary well_formed'_agree: ∀ A (contents: matrix_content A) shape,
 Proof.
   intros.
   specialize well_formed_agree with (m := {| shape := shape0; contents := contents0 |}).
-  unfold well_formedI; unfold well_formed; simpl; auto.
+  auto.
 Qed.
 
 
