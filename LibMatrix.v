@@ -321,10 +321,13 @@ Proof.
 Qed.
 
 Definition nth {A: Type} (m: matrix A) (idx: nat): option A :=
-  nth_error (linearize' (contents m)) idx.
+  nth_error (linearize' (contents m)) (idx-1).
 
-(* Compute List.map (λ n, nth ([[m1]; [m1]]: matrix nat [2;1;2;3])%vector n) *)
-(*                  [1;2;3;4;5;6;7;8;9;10;11;12]. *)
+(* what about 0? 0-1 = 0… *)
+(* Compute List.map (nth {| shape := [1;2;3]; contents := Matrix [ *)
+(*                 Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3]; *)
+(*                         Matrix [Scalar 4; Scalar 5; Scalar 6]]] |}) *)
+(*                  [1;2;3;4;5;6;7]. *)
 
 Inductive range: Type :=
   | Scalar: nat → range
