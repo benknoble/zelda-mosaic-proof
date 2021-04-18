@@ -329,6 +329,73 @@ Definition nth {A: Type} (m: matrix A) (idx: nat): option A :=
 (*                         Matrix [Scalar 4; Scalar 5; Scalar 6]]] |}) *)
 (*                  [1;2;3;4;5;6;7]. *)
 
+Fixpoint list_option_to_option_list {A: Type} (xs: list (option A)): option (list A)
+  := match xs with
+     | [] => Some []
+     | None::_ => None
+     | Some x::t => match list_option_to_option_list t with
+                    | None => None
+                    | Some t => Some (x::t)
+                    end
+     end.
+
+Theorem list_option_to_option_list_none_iff_contains_none: ∀ A (xs: list (option A)),
+  list_option_to_option_list xs = None ↔ In None xs.
+Proof.
+  induction xs; try easy.
+  destruct a; simpl; split; try (intros; auto).
+  - destruct (list_option_to_option_list xs); try easy.
+    right. now apply IHxs.
+  - destruct H; try discriminate.
+    apply IHxs in H.
+    now rewrite H.
+Qed.
+
+Theorem list_option_to_option_list_some_iff_all_some: ∀ A (xs: list (option A)) xs',
+  list_option_to_option_list xs = Some xs'
+  ↔
+  (length xs = length xs'
+  ∧ ∀ i,
+  match List.nth_error xs i with
+    (* out of bounds *)
+  | None => List.nth_error xs' i = None
+    (* should be no None in xs *)
+  | Some None => False
+    (* lists agree in bounds *)
+  | Some (Some x) => List.nth_error xs' i = Some x
+  end).
+Proof.
+  induction xs; destruct xs'; split; intros; try easy.
+  - split; try reflexivity. now destruct i.
+  - destruct a; simpl in H; destruct (list_option_to_option_list xs); try easy.
+  - specialize IHxs with xs'.
+    destruct a; simpl in H; destruct (list_option_to_option_list xs); try easy.
+    inverts H.
+    assert (Some xs' = Some xs') by auto.
+    apply IHxs in H; clear IHxs. destruct H.
+    split.
+    * simpl. now f_equal.
+    * destruct i; try easy. simpl. gen i. auto.
+  - specialize IHxs with xs'.
+    destruct H.
+    inverts H.
+    destruct a; simpl.
+    * destruct (list_option_to_option_list xs).
+      + f_equal.
+        assert (a = a0).
+        { specialize H0 with 0. simpl in H0. now inverts H0. }
+        subst. f_equal.
+        enough (Some l = Some xs'). { now inverts H. }
+        apply IHxs; clear IHxs.
+        split; try easy.
+        intros. now specialize H0 with (1+i).
+      + enough (None = Some xs') by easy.
+        apply IHxs; clear IHxs.
+        split; try easy.
+        intros. now specialize H0 with (1+i).
+    * now specialize H0 with 0.
+Qed.
+
 Inductive range: Type :=
   | Scalar: nat → range
   | Subrange: nat → nat → range
