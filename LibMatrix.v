@@ -397,6 +397,52 @@ Proof.
 Qed.
 
 Inductive range: Type :=
-  | Scalar: nat → range
+  | Single: nat → range
   | Subrange: nat → nat → range
-  | Fullrange.
+  | Fullrange: range
+.
+
+(* Compute firstn (5-(3-1)) (skipn (3-1) [1;2;3;4;5;6]). *)
+
+Fixpoint index_by_range {A: Type} (m: matrix A) (ranges: list range): option (matrix A)
+  :=
+  match m with {| shape := m_shape; contents := m_contents |} =>
+  if Nat.eqb (length ranges) (length m_shape)
+  then
+    match m_contents, ranges with
+    | Scalar a, [] => Some {| shape := []; contents := Scalar a |}
+    | Matrix [], ranges =>
+        if forallb (λ r, match r with
+                         | Fullrange => true
+                         | _=> false
+                         end) ranges
+        then Some {| shape := m_shape; contents := Matrix [] |}
+        else None
+    | Matrix ms, rh::rt =>
+        match rh with
+        | Single n =>
+            match nth_error ms (n-1) with
+            | Some m => index_by_range {| shape := tl m_shape; contents := m |} rt
+            | None => None
+            end
+            (* what if lo > hi? *)
+            (* what if either out of bounds *)
+        | Subrange lo hi =>
+            let sublist := (firstn (hi-(lo-1)) (skipn (lo-1) ms))
+            in let submatrices := map (λ m, index_by_range {| shape := tl m_shape; contents := m |} rt) sublist
+            in match list_option_to_option_list submatrices with
+              (* TODO tl m_shape bogus *)
+               | Some ms' => Some {| shape := length ms'::tl m_shape; contents := Matrix (map contents ms')|}
+               | None => None
+               end
+        | Fullrange =>
+            let submatrices := map (λ m, index_by_range {| shape := tl m_shape; contents := m |} rt) ms
+            in match list_option_to_option_list submatrices with
+               | Some ms' => Some {| shape := length ms'::tl m_shape; contents := Matrix (map contents ms')|}
+               | None => None
+               end
+        end
+    | _, _ => None
+    end
+  else None
+  end.
