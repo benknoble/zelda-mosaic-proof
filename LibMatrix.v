@@ -45,11 +45,13 @@ Ltac mc_ind x := induction x using matrix_content_ind_strong.
 (*     exact I. *)
 (* Qed. *)
 
+
 Record matrix (A: Type) : Type := {
-  shape: list nat;
-  contents: matrix_content A
+  shape: list nat; (* A list of the dimensions for the matrix. *)
+  contents: matrix_content A (* The elements of the matrix. *)
 }.
 
+(* Make the type arguments implicit for matrix. *)
 Arguments shape {A} _.
 Arguments contents {A} _.
 
@@ -67,21 +69,27 @@ Arguments contents {A} _.
 (* Check List.Forall_rev. *)
 (* (1* and a bunch more *1) *)
 
+(* Check that a matrix is well formed; i.e. the dimensions of the matrix match with the length of matrix contents. *)
 Fixpoint well_formed' {A: Type} (shape: list nat) (contents: matrix_content A): Prop :=
+  (* If the shape is an empty list, then the "matrix" in question must be a scalar. *)
   match shape with
   | [] => match contents with
           | Scalar _ => True
           | Matrix _ => False
           end
+  (* Otherwise, we look at the matrix_content and make sure it has the same length as the head of the dimensions list. *)
+  (* Then pass the tail to a new call of well_formed'.*)
   | h::t => match contents with
             | Matrix ms => length ms = h ∧ Forall (well_formed' t) ms
             | Scalar _ => False
             end
   end.
 
+(* A restated version of well_formed that takes a matrix record as a parameter instead. *)
 Definition well_formed {A: Type} (m: matrix A) := well_formed' (shape m) (contents m).
 Hint Unfold well_formed: core.
 
+(* A tactic used to repeatedly "unwind" a matrix's shape and contents to prove it is well-formed.*)
 Ltac wf_easy :=
   unfold well_formed;
   repeat (simpl; split; try reflexivity; (* simplify well_formed'/length, split the
@@ -92,6 +100,7 @@ Ltac wf_easy :=
   another well_formed' invocation (repeat!) or a "True", which (accidentally)
   gets handled by the split near the top *)).
 
+(* Application of the wf_easy tactic to show that a 3-dimensional matrix is well-formed. *)
 Example wf_1: well_formed {| shape := [1;2;3]; contents := Matrix [
                 Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3];
                         Matrix [Scalar 4; Scalar 5; Scalar 6]]] |}.
@@ -109,9 +118,11 @@ Proof.
   (* all: intros x [H | [H | [H | []]]]; now subst x. *)
 Qed.
 
+(* If a dimension of the shape list is 0, then the only matrix that can be represented is the empty matrix. *)
 Theorem wf_0_vacuous: ∀ A t, @well_formed A {| shape := 0::t; contents := Matrix [] |}.
 Proof. wf_easy. Qed.
 
+(* The same well_formed definition as before, but written as Inductive Proposition instead. *)
 Inductive well_formedI' {A: Type}: list nat → matrix_content A → Prop :=
   | WF_Scalar: ∀ a, well_formedI' [] (Scalar a)
   | WF_Empty: ∀ t, well_formedI' (0::t) (Matrix [])
@@ -120,10 +131,12 @@ Inductive well_formedI' {A: Type}: list nat → matrix_content A → Prop :=
       well_formedI' t m →
       well_formedI' ((S h)::t) (Matrix (m::ms))
 .
-
+(* Simple form of well_formedI' that only requires a matrix record to be passed as parameter and unwraps it to get its shape and contents. *)
 Definition well_formedI {A: Type} (m: matrix A) := well_formedI' (shape m) (contents m).
 Hint Unfold well_formedI: core.
 
+(* When given a shape t and list of matrix_content ms, if every matrix_content in ms matches shape t,
+   you can construct a Matrix of ms, with the length of ms being prepended to the list of dimensions. *)
 Theorem wfI_all_wf_t: ∀ A t (ms: list (matrix_content A)),
   Forall (well_formedI' t) ms →
   well_formedI' ((length ms)::t) (Matrix ms).
@@ -131,6 +144,8 @@ Proof.
   induction ms; intros; try constructor; inverts H; auto.
 Qed.
 
+(* Proof that both definitions of well_formed (boolean and IndProp version) are equivalent to one another. *)
+(* Uses wfI_all_wf_t to demonstrate matching shape across both definitions. *)
 Theorem well_formed_agree: ∀ A (m: matrix A), well_formed m ↔ well_formedI m.
 Proof.
   destruct m as [shape contents].
@@ -147,6 +162,7 @@ Proof.
     split; auto.
 Qed.
 
+(* Similar as above but gives matrix_content and shape as parameters instead of matrix itself. *)
 Corollary well_formed'_agree: ∀ A (contents: matrix_content A) shape,
   well_formed' shape contents ↔ well_formedI' shape contents.
 Proof.
@@ -155,6 +171,8 @@ Proof.
   unfold well_formedI; unfold well_formed; simpl; auto.
 Qed.
 
+
+(* Given some matrix_content, this will compute the shape (dimensionality) of the matrix. *)
 Fixpoint compute_shape {A: Type} (m: matrix_content A): list nat :=
   match m with
   | Scalar _ => []
@@ -165,6 +183,7 @@ Fixpoint compute_shape {A: Type} (m: matrix_content A): list nat :=
 (* Compute compute_shape (Matrix [Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3]; *)
 (*                                        Matrix [Scalar 4; Scalar 5; Scalar 6]]]). *)
 
+(* If two matrices are well-formed and have the same shape, compute_shape will yield the same results for both. *)
 Lemma wf_same_shape: ∀ A shape (m1 m2: matrix_content A),
   well_formed' shape m1 →
   well_formed' shape m2 →
@@ -180,6 +199,8 @@ Proof.
   apply IHshape; auto.
 Qed.
 
+(* If a matrix is well-formed and a list of matrix_content contains well-formed matrices of the same shape, then 
+   compute_shape will have the same results for the matrix and for every matrix_content in the list. *)
 Corollary wf_sub_same_shape: ∀ A shape (m: matrix_content A) (ms: list (matrix_content A)),
   well_formed' shape m →
   Forall (well_formed' shape) ms →
@@ -190,6 +211,8 @@ Proof.
   intros. eapply wf_same_shape; eauto.
 Qed.
 
+(* Proof that if a matrix is well-formed, the matrix formed by its content and the computed shape of its contents 
+   will also be well-formed. *)
 Theorem compute_shape_wf_normalizes: ∀ A (m: matrix A),
   well_formed m →
   well_formed {| shape := compute_shape (contents m); contents := contents m |}.
@@ -223,6 +246,7 @@ Definition product (shape: list nat) := List.fold_right Nat.mul 1 shape.
 
 (* Check List.concat. *)
 
+(* For a list of lists of length n, the length of all lists concatenated together is equal to n * the number of lists. *)
 Theorem concat_length_mult: ∀ A (xss: list (list A)) n,
   Forall (λ xs, length xs = n) xss →
   length (concat xss) = n * length xss.
@@ -234,6 +258,7 @@ Proof.
     rewrite (IHxss (length a)); lia || assumption.
 Qed.
 
+(* Maybe not necessary? *)
 Theorem wf_all_length_same: ∀ A (ms: list (matrix_content A)) h n t,
   well_formed {| shape := h::n::t; contents := Matrix ms |} →
   Forall (λ m', ∃ ms', m' = Matrix ms' ∧ length ms' = n) ms.
@@ -259,6 +284,7 @@ Proof.
       destruct x; now inversion H0.
 Qed.
 
+(* Given a matrix of arbitrary dimensionality, will return a flat list of all the contents. *)
 Fixpoint linearize' {A: Type} (contents: matrix_content A): list A :=
   match contents with
   | Scalar a => [a]
@@ -267,6 +293,7 @@ Fixpoint linearize' {A: Type} (contents: matrix_content A): list A :=
       (* cf. flat_map_concat_map *)
   end.
 
+(* Same as above, but lets us linearize when provided a matrix as parameter instead of matrix_content. *)
 Definition linearize {A: Type} (m: matrix A): matrix A :=
   {| shape := [product (compute_shape (contents m))];
      contents := Matrix (map Scalar (linearize' (contents m))) |}.
@@ -275,6 +302,7 @@ Definition linearize {A: Type} (m: matrix A): matrix A :=
 (*                 Matrix [Matrix [Scalar 1; Scalar 2; Scalar 3]; *)
 (*                         Matrix [Scalar 4; Scalar 5; Scalar 6]]]|}. *)
 
+(* Proof that the length of a linearized matrix will be the same as the product of the matrix's dimensions. *)
 Theorem linearize'_product: ∀ A (m: matrix A),
   well_formed m →
   length (linearize' (contents m)) = product (compute_shape (contents m)).
@@ -298,6 +326,7 @@ Proof.
   apply wf_same_shape with t; auto.
 Qed.
 
+(* Proof that if a matrix is well-formed, the linearized form of that matrix will also be well-formed. *)
 Theorem linearize_wf: ∀ A (m: matrix A),
   well_formed m → well_formed (linearize m).
 Proof.
@@ -320,6 +349,8 @@ Proof.
     now subst.
 Qed.
 
+(* Given a matrix, will return the nth element of the matrix after linearizing. *)
+(* n will work for values between 1 and the product of the matrix's shape. *)
 Definition nth {A: Type} (m: matrix A) (idx: nat): option A :=
   nth_error (linearize' (contents m)) (idx-1).
 
