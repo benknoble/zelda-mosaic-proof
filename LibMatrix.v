@@ -165,26 +165,54 @@ Theorem wfI_all_wf_t: ∀ A t (ms: list (matrix_content A)),
   Forall (well_formedI' t) ms →
   well_formedI' ((length ms)::t) (Matrix ms).
 Proof.
-  induction ms; intros; try constructor; inverts H; auto.
+  (* induction on the list *)
+  induction ms; intros;
+  (* the base case is the constructor WF_Empty *)
+  constructor;
+  (* the inductive case is an instance of WF_Cons, leaving two subgoals. *)
+  inverts H;
+  (* but the hypothesis provides enough information (combined with the induction
+   * hypothesis) to finish the proof. *)
+  (* - apply IHms. assumption. *)
+  (* - assumption. *)
+  auto.
 Qed.
-
 
 (** Proof that both definitions of [well_formed] (boolean and IndProp version)
  * are equivalent to one another. Uses [wfI_all_wf_t] to demonstrate matching
  * shape across both definitions. *)
 Theorem well_formed_agree: ∀ A (m: matrix A), well_formed m ↔ well_formedI m.
 Proof.
+  (* need to discuss specific parts of matrix, esp. for induction to work *)
   destruct m as [shape contents].
   unfold well_formedI; unfold well_formed; simpl.
   split.
-  - gen shape.
-    mc_ind contents; intros shape Hwf; destruct shape; try easy; try constructor.
-    inverts Hwf.
+  - (* well_formed m → well_formedI m *)
+    (* induction on the contents, but with shape crucially generalized *)
+    gen shape.
+    mc_ind contents; intros shape Hwf;
+      (* need case analysis on shape to keep in sync with contents *)
+      destruct shape;
+      (* but, some cases are trivial (base cases) and others are contradictory *)
+      try easy;
+      (* and try constructors from well_formedI' on the rest *)
+      try constructor.
+    (* well_formed' (n::shape) (Matrix ms) → well_formedI' (n::shape) (Matrix ms) *)
+    inverts Hwf. (* use the information we know *)
     apply wfI_all_wf_t.
+    (* just need to connect all the pieces via the induction hypothesis;
+     * Forall_impl could probably do it, but unfolding the Foralls gives enough
+     * to put the pieces together *)
     rewrite Forall_forall in *; auto.
-  - intros.
-    induction H; try wf_easy; simpl.
-    inverts IHwell_formedI'1.
+  - (* well_formedI m → well_formed m *)
+    intros.
+    (* induction on the evidence *)
+    induction H;
+      (* wf_easy takes care of the base-cases *)
+      try wf_easy; simpl.
+    (* well_formedI' ((S h)::t) Matrix (m::ms) → well_formed' ((S h)::t) (Matrix (m::ms) *)
+    (* use what we know *) inverts IHwell_formedI'1.
+    (* all the pieces are there, go find them *)
     split; auto.
 Qed.
 
@@ -196,10 +224,12 @@ Corollary well_formed'_agree: ∀ A (contents: matrix_content A) shape,
   well_formed' shape contents ↔ well_formedI' shape contents.
 Proof.
   intros.
+  (* introduce the previous theorem *)
   specialize well_formed_agree with (m := {| shape := shape0; contents := contents0 |}).
+  (* which is exactly enough *)
+  (* intros; assumption. *)
   auto.
 Qed.
-
 
 (** Given some [matrix_content], this will compute the shape (dimensionality) of
  * the matrix. The result is somewhat "normalized," as the empty matrix is given
@@ -223,13 +253,22 @@ Lemma wf_same_shape: ∀ A shape (m1 m2: matrix_content A),
   compute_shape m1 = compute_shape m2.
 Proof.
   intros A shape.
-  induction shape; destruct m1; destruct m2; try easy.
+  (* induction on the shape list *)
+  induction shape;
+    (* case analysis to keep in sync *)
+    destruct m1, m2;
+    (* get rid of the base/contradictory cases *)
+    try easy.
   intros.
-  inverts H. inverts H0.
+  (* use what we know *) inverts H. inverts H0.
+  (* we need information about the actual lists to simplify compute_shape *)
   destruct l; destruct l0; try easy.
-  simpl. simpl in H. inverts H. f_equal.
-  apply Forall_inv in H2, H1.
-  apply IHshape; auto.
+  (* related m to m0 and l to l0 *)
+  simpl. simpl in H. inverts H.
+  (* l0 gone *) f_equal.
+  (* extract heads *) apply Forall_inv in H2, H1.
+  (* the induction hypothesis combines with other assumptions to finish it *)
+  auto.
 Qed.
 
 (** Extension of [wf_same_shape] to lists. *)
@@ -239,8 +278,13 @@ Corollary wf_sub_same_shape: ∀ A shape (m: matrix_content A) (ms: list (matrix
   Forall (λ m', compute_shape m' = compute_shape m) ms.
 Proof.
   intros.
+  (* previous gives well_formed' shape0 → equivalent compute_shapes; Forall_impl
+  * lifts the implication to lists. *)
   apply Forall_impl with (well_formed' shape0); try assumption.
-  intros. eapply wf_same_shape; eauto.
+  intros.
+  (* conclusions match; eapply/eauto necessary to find shape0 *)
+  (* apply wf_same_shape with shape0; auto. *)
+  eapply wf_same_shape; eauto.
 Qed.
 
 (** Proof that if a matrix is well-formed, the matrix formed by its content and
@@ -250,22 +294,39 @@ Theorem compute_shape_wf_normalizes: ∀ A (m: matrix A),
   well_formed {| shape := compute_shape (contents m); contents := contents m |}.
 Proof.
   destruct m as [shape contents]; simpl.
+  (* induction on the contents; generalized shape necessary *)
   gen shape.
-  mc_ind contents; intros shape; destruct shape; try wf_easy; try easy.
+  mc_ind contents;
+    (* usual case analysis *)
+    intros shape; destruct shape; try wf_easy; try easy.
+  (* inductive case *)
   simpl. introv [Hlength Hms].
+  (* case analsysis on ms to handle match; see if wf_easy is enough to finish *)
   destruct ms; try now wf_easy.
+  (* unfold definition; get to the interesting bit *)
   simpl. split; try reflexivity.
+  (* change some forms to the usual quantifiers; the goal is to use the
+  * induction hypothesis H *)
   inverts Hms as Hm Hms.
-  apply Forall_forall; introv HIn.
   rewrite Forall_forall in *.
+  introv HIn.
   specialize H with (x := x).
+  (* now apply it, but we have to keep the HIn around, hence as
+   * apply H in HIn doesn't work (cannot find shape?), instead of giving a ∀
+   * shape *)
   apply H with shape0 in HIn as Hwf; clear H.
-  - replace (compute_shape m) with (compute_shape x); try assumption.
+  - (* original goal: well_formed' (compute_shape m) x
+     * but we know well_formed' (compute_shape x) x; can we connect them? cf.
+     * Hms and Hin combined with wf_same_shape. *)
+    replace (compute_shape m) with (compute_shape x); try assumption.
     clear Hwf.
-    inverts HIn; auto.
+    inverts HIn; auto. (* auto handles the x = m case, which is reflexive *)
     apply Hms in H.
+    (* Hms and H will are enough for wf_same_shape *)
     eapply wf_same_shape; eauto.
-  - inverts HIn; auto.
+  - (* premise of the original induction hypothesis needed for application
+     * just like earlier, HIn/Hms are enough to finish it *)
+    inverts HIn; auto.
 Qed.
 
 (* TODO want to support
@@ -285,10 +346,17 @@ Theorem concat_length_mult: ∀ A (xss: list (list A)) n,
   length (concat xss) = n * length xss.
 Proof.
   induction xss; intros.
-  - simpl. lia.
-  - simpl. inverts H.
+  - (* [] *)
+    simpl. lia.
+  - (* a::xss *)
+    simpl. inverts H.
     rewrite app_length.
-    rewrite (IHxss (length a)); lia || assumption.
+    (* finish with the induction hypothesis *)
+    rewrite (IHxss (length a));
+      (* by lia, for the original goal *)
+      lia
+      (* or assumption for the premise *)
+      || assumption.
 Qed.
 
 (* Maybe not necessary? *)
@@ -297,25 +365,33 @@ Theorem wf_all_length_same: ∀ A (ms: list (matrix_content A)) h n t,
   well_formed {| shape := h::n::t; contents := Matrix ms |} →
   Forall (λ m', ∃ ms', m' = Matrix ms' ∧ length ms' = n) ms.
 Proof.
-  induction ms.
-  - (* the conclusion is vacuously true *)
-    intros. apply Forall_nil.
-  - intros. apply Forall_cons.
-    * clear IHms. destruct a.
-      + (* contradiction: no-longer well-formed *)
-        inverts H. now inverts H1.
-      + exists l. split; try reflexivity.
-        inverts H.
-        apply Forall_inv in H1.
-        now inversion H1.
-    * apply (IHms (h-1) n t).
-      unfold well_formed; simpl.
+  induction ms; intros;
+    (* handles [], sets up goals for a::ms *)
+    try constructor.
+  (* a::ms *)
+  - (* P a *)
+    clear IHms. destruct a.
+    * (* Scalar; contradiction: no-longer well-formed *)
+      inverts H. now inverts H1.
+    * (* Matrix *)
+      exists l. split; try reflexivity.
       inverts H.
-      split; try (simpl; lia).
-      rewrite Forall_forall in H1. apply Forall_forall.
-      intros. assert (In x (a::ms)) by (simpl; now right).
-      clear H. apply H1 in H0. clear H1.
-      destruct x; now inversion H0.
+      apply Forall_inv in H1.
+      now inverts H1.
+  - (* Forall P l *)
+    (* notice the (h-1), since h is for Matrix (a::ms) and we need ms here *)
+    apply (IHms (h-1) n t).
+    unfold well_formed; simpl.
+    inverts H.
+    split; try (simpl; lia).
+    (* massaging the Foralls *)
+    rewrite Forall_forall in *.
+    intros.
+    (* easy premise for H1, which is well-formedness on submatrices *)
+    assert (In x (a::ms)) by (simpl; now right). clear H.
+    apply H1 in H0. clear H1.
+    (* one contradiction, one easy *)
+    destruct x; now inversion H0.
 Qed.
 
 (** Given a matrix of arbitrary dimensionality, will return a flat list of all
@@ -344,20 +420,25 @@ Theorem linearize'_product: ∀ A (m: matrix A),
   length (linearize' (contents m)) = product (compute_shape (contents m)).
 Proof.
   intros.
+  (* let's use the inductive version for better information *)
   rewrite well_formed_agree in H.
   destruct m as [shape contents]; unfold well_formedI in *; simpl in *.
-  induction H; try reflexivity.
+  induction H; (* base cases *) try reflexivity.
+  (* inductive case *)
   simpl.
   rewrite app_length.
+  (* definition of linearize' on a Matrix *)
   replace (flat_map linearize' ms) with (linearize' (Matrix ms)) by reflexivity.
-  rewrite IHwell_formedI'1.
-  rewrite IHwell_formedI'2.
-  f_equal.
-  destruct ms; try reflexivity.
-  simpl.
-  inverts H.
-  enough (compute_shape m = compute_shape m0).
-  { now rewrite H. }
+  rewrite IHwell_formedI'1; clear IHwell_formedI'1.
+  rewrite IHwell_formedI'2; clear IHwell_formedI'2.
+  (* only need equality for one more set of addends *) f_equal.
+  (* depends on length of ms *)
+  destruct ms; (* [] *) try reflexivity.
+  (* m0::ms *)
+  simpl. inverts H.
+  (* just need (compute_shape m = compute_shape m0) *)
+  enough (compute_shape m = compute_shape m0). { now rewrite H. }
+  (* but wf_same_shape will do it, if we use the non-I versions *)
   rewrite <- well_formed'_agree in *.
   apply wf_same_shape with t; auto.
 Qed.
@@ -369,20 +450,32 @@ Theorem linearize_wf: ∀ A (m: matrix A),
 Proof.
   destruct m as [shape contents].
   unfold well_formed; simpl.
+  (* regular contents induction is enough; do the usual syncing on shape/get rid
+  * of easy/contradictory cases *)
   induction contents; intros; destruct shape; try easy; try wf_easy.
   inverts H.
+  (* usual quantifiers *)
   rewrite Forall_forall in *.
   split.
-  - rewrite map_length.
+  - (* length … = product … *)
+    rewrite map_length.
+    (* re-shape for linearize'_product *)
     pose ({| shape := (length l)::shape0; contents := Matrix l |}).
     replace (Matrix l) with (contents m); try reflexivity.
     apply linearize'_product.
+    (* now go back and use the details of the matrix, but in the inducrive
+     * version, since we can relate the use of length to it more easily *)
     subst m. apply well_formed_agree.
     apply wfI_all_wf_t.
+    (* back to Forall *)
     apply Forall_forall in H1.
+    (* P implies Q under Forall *)
     apply Forall_impl with (well_formed' shape0); try assumption.
     intros. apply well_formed'_agree. assumption.
-  - intros. rewrite in_map_iff in H. decompose record H; clear H.
+  - (* everyting is scalar in the map, since the shape list can only be a single
+     * element after linearize. but since the function being mapped is the
+     * Scalar constructor, this should be easy. *)
+    intros. rewrite in_map_iff in H. decompose record H; clear H.
     now subst.
 Qed.
 
@@ -410,11 +503,20 @@ Fixpoint list_option_to_option_list {A: Type} (xs: list (option A)): option (lis
 Theorem list_option_to_option_list_none_iff_contains_none: ∀ A (xs: list (option A)),
   list_option_to_option_list xs = None ↔ In None xs.
 Proof.
-  induction xs; try easy.
+  induction xs; (* [] *) try easy.
+  (* a::xs
+   * to proceed depends on whether a is None or Some
+   * some of the ↔ cases are easy *)
   destruct a; simpl; split; try (intros; auto).
-  - destruct (list_option_to_option_list xs); try easy.
+  - (* list_option_to_option_list (Some a::xs) = None → In None (Some a::xs) *)
+    (* analysis required by definition, but one case is contradictory *)
+    destruct (list_option_to_option_list xs); try easy.
+    (* but now the induction hypothesis applies *)
     right. now apply IHxs.
-  - destruct H; try discriminate.
+  - (* In None (Some a::xs) → list_option_to_option_list (Some a::xs) = None *)
+    (* must be the case that None is in xs *)
+    destruct H; try discriminate.
+    (* but then the induction hypothesis applies *)
     apply IHxs in H.
     now rewrite H.
 Qed.
@@ -433,35 +535,65 @@ Theorem list_option_to_option_list_some_iff_all_some: ∀ A (xs: list (option A)
   | Some (Some x) => List.nth_error xs' i = Some x
   end).
 Proof.
+  (* induction on xs but with xs' in sync; get rid of all the
+   * contradictions, and split the ↔ proofs *)
   induction xs; destruct xs'; split; intros; try easy.
-  - split; try reflexivity. now destruct i.
-  - destruct a; simpl in H; destruct (list_option_to_option_list xs); try easy.
-  - specialize IHxs with xs'.
+  - (* list_option_to_option_list [] = Some [] → … *)
+    split; try reflexivity.
+    (* nth_error always None on the empty lists *) now destruct i.
+  - (* list_option_to_option_list (a::xs) = Some [] → … *)
+    (* spot the contradiction in H ^ *)
     destruct a; simpl in H; destruct (list_option_to_option_list xs); try easy.
+  - (* list_option_to_option_list (a::xs) = Some (a0::xs') → … *)
+    (* really only care about xs' *)
+    specialize IHxs with xs'.
+    (* usualy analysis on a/xs *)
+    destruct a; simpl in H; destruct (list_option_to_option_list xs); try easy.
+    (* Some (a::l) = Some (a0::xs') *)
     inverts H.
+    (* to get the IHxs conclusions *)
     assert (Some xs' = Some xs') by auto.
     apply IHxs in H; clear IHxs. destruct H.
     split.
-    * simpl. now f_equal.
-    * destruct i; try easy. simpl. gen i. auto.
-  - specialize IHxs with xs'.
+    * (* length (Some a0::xs) = length (a0::xs') *)
+      simpl. (* we know the tails have the same length *) now f_equal.
+    * (* ∀ i, … *)
+      destruct i; (* 0 *) try easy.
+      (* S i *)
+      simpl.
+      (* at this point, exactly matches info from IH *)
+      gen i. auto.
+  - (* length … ∧ ∀ i … → list_option_to_option_list (a::xs) = Some (a0::xs') *)
+    (* really only care about xs' *)
+    specialize IHxs with xs'.
+    (* make hyps more useable *)
     destruct H.
     inverts H.
+    (* usualy analysis on a/xs *)
     destruct a; simpl.
-    * destruct (list_option_to_option_list xs).
-      + f_equal.
-        assert (a = a0).
+    * (* Some a; need to handle match *)
+      destruct (list_option_to_option_list xs).
+      + (* Some l *)
+        f_equal.
+        (* need a = a0, l = xs' *)
+        assert (a = a0). (* from the ∀ i *)
         { specialize H0 with 0. simpl in H0. now inverts H0. }
         subst. f_equal.
+        (* now l from the IH *)
         enough (Some l = Some xs'). { now inverts H. }
         apply IHxs; clear IHxs.
-        split; try easy.
+        split; auto.
+        (* careful with the index! hyp has nth_error (Some a0::xs), but we care
+         * about nth_error xs *)
         intros. now specialize H0 with (1+i).
-      + enough (None = Some xs') by easy.
+      + (* None, contradiction from the same reasoning *)
+        enough (None = Some xs') by easy.
         apply IHxs; clear IHxs.
-        split; try easy.
+        split; auto.
         intros. now specialize H0 with (1+i).
-    * now specialize H0 with 0.
+    * (* None, also contradiction, but faster to find; the list shouldn't have
+       * contained None *)
+      now specialize H0 with 0.
 Qed.
 
 Inductive range: Type :=
