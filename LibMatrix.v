@@ -4,6 +4,10 @@ Require Import List.
 Import ListNotations.
 Require Import Lia.
 
+Create HintDb matrix.
+Hint Constants Transparent: matrix.
+Hint Variables Transparent: matrix.
+
 (** [matrix_content] contains the contents of the matrix in a tagged structure *)
 Inductive matrix_content (A: Type) : Type :=
   | Scalar: A → matrix_content A
@@ -101,7 +105,7 @@ Fixpoint well_formed' {A: Type} (shape: list nat) (contents: matrix_content A): 
  * parameter instead. This is more convenient then unbundling the matrix in some
  * cases.*)
 Definition well_formed {A: Type} (m: matrix A) := well_formed' (shape m) (contents m).
-#[export] Hint Unfold well_formed: core.
+#[export] Hint Unfold well_formed: matrix.
 
 (** A tactic used to repeatedly "unwind" a matrix's shape and contents to prove
  * it is well-formed. Handles most "literal"/"ground" cases automatically. *)
@@ -155,7 +159,7 @@ Inductive well_formedI' {A: Type}: list nat → matrix_content A → Prop :=
  * passed as parameter and unwraps it to get its shape and contents. Analogous
  * to [well_formed]. *)
 Definition well_formedI {A: Type} (m: matrix A) := well_formedI' (shape m) (contents m).
-#[export] Hint Unfold well_formedI: core.
+#[export] Hint Unfold well_formedI: matrix.
 
 (** When given a [shape] [t] and list of [matrix_content] [ms], if every
  * [matrix_content] in [ms] matches [shape] [t], you can construct a
@@ -326,7 +330,7 @@ Proof.
     eapply wf_same_shape; eauto.
   - (* premise of the original induction hypothesis needed for application
      * just like earlier, HIn/Hms are enough to finish it *)
-    inverts HIn; auto.
+    inverts HIn; auto with matrix.
 Qed.
 
 (* TODO want to support
