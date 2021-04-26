@@ -490,6 +490,8 @@ Definition nth {A: Type} (m: matrix A) (idx: nat): option A :=
 (*                         Matrix [Scalar 4; Scalar 5; Scalar 6]]] |}) *)
 (*                  [1;2;3;4;5;6;7]. *)
 
+(* TODO spec nth *)
+
 Fixpoint list_option_to_option_list {A: Type} (xs: list (option A)): option (list A)
   := match xs with
      | [] => Some []
