@@ -7,6 +7,7 @@ Require Import ZArith.
 Require Import Coq.Strings.String.
 Require Import Coq.Lists.List.
 Import ListNotations.
+Require Import microMatlab.LibMatrix.
 
 Module Syntax.
 
@@ -18,7 +19,7 @@ Module Syntax.
    * - define semantics *)
 
   Definition var_name: Type := string.
-  Definition matrix_t: Type → Type := list.
+  Definition matrix_t: Type → Type := matrix.
 
   Inductive exp: Type :=
     (* simple literals *)
@@ -62,23 +63,26 @@ Module Syntax.
   (* ndims = length . size *)
   Definition ndims: exp → exp := LengthExpr ∘ SizeExpr.
 
+  (* propositional predicates that may be useful for the syntax *)
   Definition numberp: exp → Prop := λ e,
     (∃ z, e = IntLiteral z)
     ∨
     (∃ f, e = FloatLiteral f).
 
-  Definition indexp: exp → Prop. Admitted.
+  Definition indexp: exp → Prop.
+  Admitted.
 
-  Definition falsep: exp → Prop. Admitted.
+  Definition falsep: exp → Prop.
   (* IntLiteral, equal to 0
    * or Empty Matrix
    * or Matrix containing something false *)
+  Admitted.
   Definition truep: exp → Prop := not ∘ falsep.
 
   Definition vectorp: exp → Prop := λ e,
     ∃ vs, (e = MatrixLiteral vs
-    (* ∧ *)
-    (* Matrix-dim is 1 *)).
+    ∧
+    length (shape vs) = 1).
   Definition matrixp: exp → Prop := λ e,
     (∃ vs, e = MatrixLiteral vs).
 
