@@ -369,59 +369,6 @@ relevant proofs.
     \caption{Algorithm: Version 3}\label{alg:v3}
 \end{figure}
 
-\section{Goals and Timeline}
-
-As we neglected to include them in our original proposal, we now propose the
-following goals, taking into consideration the progress that we have made so far
-with the project:
-
-\begin{enumerate}
-
-    \item \textbf{Minimum Viable Product}: Successful modelling of a majority of
-        the desired features corresponding to matrix operations in \mmatlab\@.
-        Given the lack of multi-dimensional matrix libraries in Coq and the
-        necessary additions of several features in the Coq standard library,
-        this alone would be a notable achievement for us.
-
-    \item \textbf{Desired Goal}: Successful binding of our matrix operations to
-        \mmatlab\ statements and expressions, including the ability to evaluate
-        programs written in \mmatlab\@. A proof of termination, or sketch of
-        one, for our V1 algorithm is provided.
-
-    \item \textbf{Stretch Goal}: All of the above, and the addition of all
-        operations used in V2 and V3 algorithms (most notably, for loops that
-        increment across a range at varying intervals). Proofs that use
-        these features.
-
-\end{enumerate}
-
-Given what we have encountered so far, we propose the following modified
-timeline for project completion.
-
-\begin{itemize}
-    \item \textbf{03/31/21}: Progress Report Due
-    \item \textbf{04/09/21}: Significant progress made on most matrix operations
-        and data structures.
-    \item \textbf{04/16/21}: Binding \mmatlab\ syntax to operations written
-        in Coq; definition of semantics and program evaluator; formal proof
-        specification written.
-    \item \textbf{04/24/21}: Proof(s) should be written or scope adjusted
-        accordingly. All logic should be implemented; edits for readability
-        should be the main changes henceforth.
-    \item \textbf{04/26/21}: Final Proof Due
-    \item \textbf{05/03/21}: Final Paper Due
-    \item \textbf{05/05/21}: Final Presentation Delivered
-\end{itemize}
-
-We provide the following ``diff'' between the scope of our original project
-proposal and our new proposal:
-\begin{itemize}
-    \item Heightened emphasis on implementation of matrix operations, since they
-        are proving to be non-trivial.
-    \item Addition of goal tiers.
-    \item Discussion on Hoare logic.
-\end{itemize}
-
 {\printbibliography}
 
 \end{document}
