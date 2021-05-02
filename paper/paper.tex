@@ -24,6 +24,8 @@
 \newcommand{\colorlib}{CoLoR}
 \renewcommand{\algorithmiccomment}[1]{\% #1}
 \newcommand{\inputcoq}[1]{\InputIfFileExists{#1.v_tex}{}{\typeout{No file #1.v_tex.}}}
+\newcommand{\var}[1]{\mathit{#1}}
+\newcommand{\func}[1]{\mathsf{#1}}
 
 \begin{document}
 
@@ -156,32 +158,32 @@ inductive types, shown in \figurename~\ref{fig:inductivetypeexp} and
 \begin{figure}[ht]
     \centering
     \begin{align*}
-        \mathsf{exp} \triangleq\;
-        & |\; \mathsf{IntLiteral} \\
-        & |\; \mathsf{FloatLiteral} \\
-        & |\; \mathsf{AddExp} \\
-        & |\; \mathsf{MultExp} \\
-        & |\; \mathsf{DivExp} \\
-        & |\; \mathsf{EqualsExp} \\
-        & |\; \mathsf{NotEqualsExp} \\
-        & |\; \mathsf{LTEqualsExp} \\
-        & |\; \mathsf{Floor} \\
-        & |\; \mathsf{VarRefExp} \\
-        & |\; \mathsf{RangeExp} \\
-        & |\; \mathsf{MatrixLiteral} \\
-        & |\; \mathsf{IndexExp} \\
-        & |\; \mathsf{SqueezeExpr} \\
-        & |\; \mathsf{SizeExpr} \\
-        & |\; \mathsf{LengthExpr} \\
-        & |\; \mathsf{ProdExpr} \\
-        & |\; \mathsf{SumExpr} \\
-        & |\; \mathsf{MinExpr} \\
-        & |\; \mathsf{MaxExpr} \\
-        & |\; \mathsf{PointWiseExpExp} \\
-        & |\; \mathsf{ZerosExp} \\
-        & |\; \mathsf{OnesExp} \\
-        & |\; \mathsf{InfExp} \\
-        & |\; \mathsf{FindExp}
+        \func{exp} \triangleq\;
+        & |\; \func{IntLiteral} \\
+        & |\; \func{FloatLiteral} \\
+        & |\; \func{AddExp} \\
+        & |\; \func{MultExp} \\
+        & |\; \func{DivExp} \\
+        & |\; \func{EqualsExp} \\
+        & |\; \func{NotEqualsExp} \\
+        & |\; \func{LTEqualsExp} \\
+        & |\; \func{Floor} \\
+        & |\; \func{VarRefExp} \\
+        & |\; \func{RangeExp} \\
+        & |\; \func{MatrixLiteral} \\
+        & |\; \func{IndexExp} \\
+        & |\; \func{SqueezeExpr} \\
+        & |\; \func{SizeExpr} \\
+        & |\; \func{LengthExpr} \\
+        & |\; \func{ProdExpr} \\
+        & |\; \func{SumExpr} \\
+        & |\; \func{MinExpr} \\
+        & |\; \func{MaxExpr} \\
+        & |\; \func{PointWiseExpExp} \\
+        & |\; \func{ZerosExp} \\
+        & |\; \func{OnesExp} \\
+        & |\; \func{InfExp} \\
+        & |\; \func{FindExp}
     \end{align*}
     \caption{Skeleton of abstract syntax for expressions used in
     \mmatlab\@.}\label{fig:inductivetypeexp}
@@ -190,15 +192,15 @@ inductive types, shown in \figurename~\ref{fig:inductivetypeexp} and
 \begin{figure}[ht]
     \centering
     \begin{align*}
-        \mathsf{statement} \triangleq\;
-        & |\; \mathsf{NoOp} \\
-        & |\; \mathsf{Error} \\
-        & |\; \mathsf{ExprS} \\
-        & |\; \mathsf{AssignS} \\
-        & |\; \mathsf{IndexedAssignS} \\
-        & |\; \mathsf{SeqS} \\
-        & |\; \mathsf{WhileS} \\
-        & |\; \mathsf{IfThenElseS} \\
+        \func{statement} \triangleq\;
+        & |\; \func{NoOp} \\
+        & |\; \func{Error} \\
+        & |\; \func{ExprS} \\
+        & |\; \func{AssignS} \\
+        & |\; \func{IndexedAssignS} \\
+        & |\; \func{SeqS} \\
+        & |\; \func{WhileS} \\
+        & |\; \func{IfThenElseS} \\
     \end{align*}
     \caption{Skeleton of abstract syntax for statements used in
     \mmatlab\@.}\label{fig:inductivetypestmt}
