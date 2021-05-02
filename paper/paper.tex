@@ -2,6 +2,7 @@
 
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
+\usepackage{array,booktabs}
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{textcomp}
@@ -9,6 +10,7 @@
 \usepackage[inline]{enumitem}
 \newlist{inlist}{enumerate*}{1}
 \setlist[inlist]{label= (\alph*)}
+\usepackage{mathpartir,semantic}
 \usepackage[colorlinks]{hyperref}
 \hypersetup{%
     colorlinks=true,
@@ -26,6 +28,7 @@
 \newcommand{\inputcoq}[1]{\InputIfFileExists{#1.v_tex}{}{\typeout{No file #1.v_tex.}}}
 \newcommand{\var}[1]{\mathit{#1}}
 \newcommand{\func}[1]{\mathsf{#1}}
+\newcommand{\iname}[1]{\textsf{#1}}
 
 \begin{document}
 
@@ -370,6 +373,294 @@ relevant proofs.
     \end{algorithmic}
     \caption{Algorithm: Version 3}\label{alg:v3}
 \end{figure}
+
+\section{Results}\label{S:results}
+
+In this section, we present the results of our work towards proving termination
+of our mosaic algorithm. As noted, our primary accomplishment is the definition
+of a workable matrix type and operations on it. This matrix type is intended to
+support the operations needed to implement expression evaluation for \mmatlab, a
+crucial component of implementing the language's semantics. It remains to finish
+implementing expression evaluation and the necessary matrix operations, to give
+operation semantics for the statements of \mmatlab, to give a total Hoare logic
+for the language, and then finally to give the proofs of termination of the
+algorithms found in \figurename{s}~\ref{alg:v1},~\ref{alg:v2}, and~\ref{alg:v3}.
+
+We present, in order,
+\begin{inlist}
+\item the Coq definition of the polymorphic matrix type \texttt{matrix A} and
+    corresponding operations;
+\item key theorems and sketches of their proofs about the matrix type and its
+    operations; and
+\item advanced tactics, automation, and ideas for Coq proofs used in the
+    development.
+\end{inlist}
+
+% TODO: update zelda_mosaic_proof version with final commit
+
+All code may be found at the project repository~\cite{zelda_mosaic_proof}. Most
+of the work in this section corresponds to the file \texttt{Lib Matrix.v}.
+
+\subsection{Defining Matrices}\label{S:matrix_defn}
+
+First, we define the matrix type. After noting that it allows invalid matrices
+to be formed, we define the well-formed property on matrices in two equivalent
+ways. Finally, we give an overview of the Coq definitions of three operations on
+matrices: computing their shape, linearizing, and linear indexing. We briefly
+mention the beginning of our work on multi-dimensional and range-based indexing.
+
+\subsubsection{The matrix type}
+
+As mentioned in \S~\ref{S:design_dependent}, our original formulation of
+matrices as nested dependent \texttt{Vector.t}s quickly grew in complexity.
+We abandoned that approach in favor of a type that is not guaranteed to behave
+well, but whose definition makes defining operations more
+natural~\cite{SO_2021_2}. This approach removes the proofs that dependent types
+provide automatically, so we have to give those ourselves.
+
+The new design pairs the dimensionality of a matrix, called its \emph{shape},
+with its \emph{contents}. The pairing is done via \emph{Record} types (see the
+Coq manual~\cite{Coq}), which are tuples with named elements. The definition
+follows below:
+
+\begin{align*}
+    & \func{matrix} (\var{A}: \var{Type}) \triangleq \\
+    & \{
+        \func{shape}: \func{list}\, \mathbb{N},
+        \func{contents}: \func{matrix\_content}\, \var{A}
+    \}
+\end{align*}
+
+The shape is a list of naturals. Each natural corresponds (in a well-formed
+matrix) to the number of elements of the matrix in that dimension. For example,
+a vector of five (5) elements has shape \texttt{[5]}, while a two-dimensional
+matrix of three-by-two elements has shape \texttt{[3; 2]}. The vacuous case,
+when the shape is the empty list, is a single scalar value: there is no matrix.
+
+In parallel, the contents are wrapped in an inductive polymorphic type
+\(\func{matrix\_content}\, \var{A}\). The type's two constructors correspond to
+the two cases above: a \(\func{Matrix}\) contains a list of
+\(\func{matrix\_content}\, \var{A}\) values. The \(\func{Matrix}\) constructor,
+in a well-formed matrix, corresponds to one dimension of the shape. A
+\(\func{Scalar}\) contains exactly a value of type \(\var{A}\) and is the
+conceptually the base-case for the matrix type.
+
+\begin{align*}
+    & \func{matrix\_content} (\var{A}: \var{Type}) \triangleq\; \\
+    & |\; \func{Scalar}: \var{A} \to \func{matrix\_content}\, \var{A} \\
+    & |\; \func{Matrix}: \func{list}\, (\func{matrix\_content}\, \var{A}) \to \func{matrix\_content}\, \var{A}
+\end{align*}
+
+We provide a few concrete examples of mathematical objects in the space of
+scalars and multi-dimensional matrices containing a single type of object in
+Table~\ref{T:matrices}. Each example shows standard mathematical notation, the
+Coq notation using our matrix type, and the resulting type of the value in Coq.
+
+\begin{table*}[ht]
+    \centering
+    \begin{tabular}{c >{\ttfamily}c >{\ttfamily}c}
+        Mathematical notation & Coq notation & Coq type \\ \toprule
+        \(5\) & \{| shape := []; contents := Scalar 5 |\} & matrix nat \\
+        \(\begin{bmatrix}
+            1 & 2 & 3
+        \end{bmatrix}\)
+        & \{| shape := [3]; contents := Matrix [Scalar 1; Scalar 2; Scalar 3] |\} & matrix nat \\
+        \\
+        \(\begin{bmatrix}
+            1 & 2 \\
+            3 & 4 \\
+            5 & 6
+        \end{bmatrix}\)
+        & \{| shape := [3; 2]; contents := Matrix [
+        & matrix nat \\
+        & Matrix [Scalar 1; Scalar 2]; & \\
+        & Matrix [Scalar 3; Scalar 4]; & \\
+        & Matrix [Scalar 5; Scalar 6]] |\} &
+    \end{tabular}
+    \caption{Example matrices and their Coq equivalents}\label{T:matrices}
+\end{table*}
+
+\subsubsection{The well-formed property}
+
+As suggested above, the lack of dependent typing means a value of type
+\(\func{matrix}\, \var{A}\) is \emph{not} guaranteed to be well-formed. All of
+the following are valid but nonsensical values:
+
+\begin{verbatim}
+{| shape := [];
+   contents := Matrix [Scalar 1] |}
+{| shape := [2];
+   contents = Matrix [Scalar 2] |}
+{| shape := [1; 2; 3; 0];
+   contents = Scalar 0 |}
+\end{verbatim}
+
+In the first case, we have a matrix with no dimensions, which should be a scalar
+and is not. In the second case, we have a one-dimensional matrix of two
+elements which only contains one element. In the third, we have an empty
+four-dimensional matrix which is actually a scalar. None of these pairings makes
+sense---we need a way to exclude them from our results, effectively categorizing
+these matrices as ``not well-formed.'' Conversely, we would like a way to
+categorize matrices as well-formed.
+
+We have informally given pieces of the definition in laying our the relationship
+between shape and contents; here, we make the definition more precise. A matrix
+is well-formed if, and only if,
+\begin{itemize}
+    \item the shape is an empty list, and the contents are a single scalar value;
+        or
+    \item the shape is a non-empty list consisting of a head \(n\) representing
+        the length of the first dimension and tail \(t\) representing the shape
+        of the subsequent dimensions, and the contents is a \(\func{Matrix}\)
+        containing a list with length \(n\), and each element of the list is
+        well-formed with respect to \(t\).
+\end{itemize}
+In Coq, we express this definition via a recursive definition
+\(\func{well\_formed'}\) which computes a proposition, or proof-burden, over a
+shape and contents. We wrap this up in a definition \(\func{well\_formed}\),
+which unpacks a matrix for use with \(\func{well\_formed'}\). With this
+definition, we can theorems in terms of matrices that are assumed to be
+well-formed or that must be shown to be well-formed.
+
+In the course of our development, we discovered that this computational version
+did not always provide a convenient means to work a proof. Clearly, the
+recursive nature of matrices and well-formedness means that most proofs will be
+by induction. But induction on what? There is no induction principle for the
+record type, so we must choose from induction on the shape or on the contents.
+It turns out that there is a natural inductive version of the well-formed
+property that permits induction on evidence. In \S~\ref{S:matrix_thm} we will
+state and sketch the equivalence theorem between the two definitions. For now,
+we give the judgment rules for \(\func{well\_formedI'}\), the inductive
+counterpart to \(\func{well\_formed'}\) in \figurename~\ref{F:wfI}. We wrap the
+inductive proposition in \(\func{well\_formedI}\), which unpacks a matrix the
+same way as \(\func{well\_formed}\).
+
+\begin{figure*}[ht]
+    \centering
+    \begin{mathpar}
+        \inference[\iname{WF\_Scalar}]{%
+            a: A
+        }{\func{well\_formedI'}\, []\, (\func{Scalar}\, a)}
+
+        \and
+
+        \inference[\iname{WF\_Empty}]{%
+            t: \func{list}\, \mathbb{N}
+        }{\func{well\_formedI'}\, (0::t)\, (\func{Matrix}\, [])}
+
+        \and
+
+        \inference[\iname{WF\_Cons}]{%
+            h: \mathbb{N} &
+            t: \func{list}\, \mathbb{N} &
+            m: \func{matrix\_contents}\, \var{A} \\
+            ms: \func{list}\, (\func{matrix\_content}\, \var{A}) &
+            \func{well\_formedI'}\, (h::t)\, (\func{Matrix}\, ms) &
+            \func{well\_formedI'}\, t\, m
+        }{\func{well\_formedI'}\, (1+h::t)\, (\func{Matrix}\, (m::ms))}
+
+    \end{mathpar}
+    \caption{Inductive judgments for the well-formed property of
+    matrices}\label{F:wfI}
+\end{figure*}
+
+The important features of the judgements are \(\iname{WF\_Emtpy}\) and
+\(\iname{WF\_Cons}\). The judgement \(\iname{WF\_Empty}\) corresponds to the
+vacuous case: all elements in an empty list are well-formed with respect to any
+shape (there are no such elements!). The judgment \(\iname{WF\_Cons}\) provides
+a judgment for increasing the size of the first dimension of a well-formed
+matrix by adding a well-formed component to the contents.
+
+It is easy to prove that all the matrices in Table~\ref{T:matrices} are
+well-formed with respect to both definitions. It is likewise easy to prove that
+the previously-sketched invalid examples are not well-formed under both
+definitions.
+
+\subsubsection{Some operations on matrices}
+
+The operations we have defined are computing the shape of a matrix, linearizing
+the matrix, and indexing a multi-dimensional matrix linearly. We will discuss
+these and give a brief note about our approach to multi-dimensional range-based
+indexing.
+
+\paragraph{Computing the shape of a matrix} While each matrix carries its shape
+as part of the record pairing, it is occasionally convenient to compute from the
+contents alone the shape. There are two subtleties worth mentioning: first, the
+computation is only valid for well-formed matrices because it relies on
+assumptions about the relationship between different components of the contents.
+Second, the computed shape may not be the most general: we have already seen
+that, when one dimension in a matrix has shape zero, the subsequent dimensions
+can be arbitrarily sized and the result is still well-formed! This impacts the
+correctness statement for shape-computation: on a well-formed matrix, it may not
+give the exact same shape, yet it will give a shape such that the original
+matrix is well-formed with respect to the new shape. We can call this
+``normalization'' of the shape, as it discards dimensions that follow a
+zero-sized dimension. See \S~\ref{S:matrix_thm} for more details on
+normalization via shape computation. The definition is straightforward: the
+function \(\func{compute\_shape}\) yields
+\begin{itemize}
+    \item an empty list when the contents consist of a single scalar;
+    \item a singleton list containing zero when the contents consist of an empty
+        matrix; and
+    \item a list with head the length of the matrix contents and tail the
+        computed shape of just one of the contents when the contents
+        consist of a non-empty matrix.
+\end{itemize}
+This last bullet explains why the function is only valid on well-formed
+matrices: it implicitly assumes that all the elements of the matrix contents
+have the same computed shape, which is only true when the matrix is well-formed.
+The same definition is given below:
+
+\begin{align*}
+    & \func{compute\_shape}(\var{m}) \triangleq \\
+    & \begin{cases}
+        [] & m = \func{Scalar}\, a \\
+        [0] & m = \func{Matrix}\, [] \\
+        |\var{ms}| :: \func{compute\_shape}\, m' & m = \func{Matrix}\, \var{ms}, \\
+        & \var{ms} = m'::t
+    \end{cases}
+\end{align*}
+
+\paragraph{Linearizing a matrix} See \S~\ref{S:design_linearize} for more
+details on matrix linearization. To define linearization in Coq, we use a
+two-stage unpacking as with other matrix operations. The function
+\(\func{linearize'}\) turns scalars into a singleton list and recursively
+flat-maps itself over matrices to produce the one-dimensional matrix as a list.
+The function \(\func{linearize}\) unpacks a matrix, then transforms the contents
+by wrapping the result of mapping \(\func{linearize'}\) into \(\func{Scalar}\)s
+in a \(\func{Matrix}\) and transforms the shape by taking the product of the
+(normalized) shape of the matrix. Recall that the length of the linearized
+vector is the product of the sizes of all the dimensions. The definitions are
+spelled out below:
+
+\begin{align*}
+    & \func{linearize'}(\var{contents}) \triangleq \\
+    & \begin{cases}
+        [\var{a}] & \var{contents} = \func{Scalar}\, \var{a} \\
+        \func{flat\_map}\, \func{linearize'}\, \var{ms} & \var{contents} =
+        \func{Matrix}\, ms
+    \end{cases} \\
+    & \func{linearize}(\{\var{contents}, \var{shape}\}) \triangleq \\
+    & \{ \var{shape} = \left[\prod \func{compute\_shape}\, \var{contents}\right]; \\
+    & \ \, \var{contents} = \func{Matrix}\, (\func{map}\, \func{Scalar}\, (\func{linearize'}\, \var{contents})) \}
+\end{align*}
+
+\paragraph{Linearly indexing a matrix} Given the operation to linearize a
+matrix, one-based linearly indexing is easy. See \S~\ref{S:design_linear_index}
+for details on linear indexing. The function \(\func{nth}\) takes a matrix \(m\)
+and an index \(n\); it returns the one-based linearly indexed content of \(m\)
+at \(n\) (wrapped in the option constructor \(\func{Some}\)) if \(n\) is in
+bounds relative to \(m\). When \(n\) is out of bounds, the result is
+\(\func{None}\). For one-based indexing with functions that naturally use
+zero-based indexing, we use \(n-1\). We should note that the current version of
+\(\func{nth}\) has the subtle bug that indexing at \(n=0\) currently returns the
+same as indexing at \(n=1\), when it should in fact be out of bounds and thus
+\(\func{None}\)---a simple \texttt{if} or \texttt{match} guard would cover this
+case.
+
+\subsection{Key Theorems about Matrices}\label{S:matrix_thm}
+
+\subsection{Advanced Coq for Matrices}\label{S:matrix_coq}
 
 {\printbibliography}
 
