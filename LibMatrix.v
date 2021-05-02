@@ -294,7 +294,7 @@ Corollary wf_sub_same_shape: ∀ A shape (m: matrix_content A) (ms: list (matrix
   Forall (λ m', compute_shape m' = compute_shape m) ms.
 Proof.
   (* previous gives well_formed' shape0 → equivalent compute_shapes; Forall_impl
-  * lifts the implication to lists. *)
+   * lifts the implication to lists. *)
   eauto using Forall_impl with matrix.
 Qed.
 
@@ -460,7 +460,7 @@ Proof.
   destruct m as [shape contents].
   unfold well_formed; simpl.
   (* regular contents induction is enough; do the usual syncing on shape/get rid
-  * of easy/contradictory cases *)
+   * of easy/contradictory cases *)
   induction contents; intros; destruct shape; try easy; try wf_easy.
   inverts H.
   (* usual quantifiers *)
