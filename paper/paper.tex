@@ -892,6 +892,16 @@ same as indexing at \(n=1\), when it should in fact be out of bounds and thus
 case. We note that our linear indexing supports only a single index, while
 \matlab\ allows any index prior to the last to start linearization.
 
+\paragraph{Range-based indexing} See \S~\ref{S:ranged_indexing} for details on
+range-based indexing. Our initial attempt, though incomplete, defines a type for
+the different types of range indexers and a function for indexing a sub-matrix
+via a list of range indexers. We also make use of an auxiliary data function to
+convert a list of options to an optional list, which we have proven
+correct\footnote{The result is \(\func{None}\) if there is a \(\func{None}\)
+anywhere in the list. The result is a list of values if-and-only-if the two
+lists have the same length and they agree on the values at all possible
+indices.}.
+
 \subsection{Key Theorems about Matrices}\label{S:matrix_thm}
 
 Unless otherwise stated, the key theorems are predicated on all matrices
