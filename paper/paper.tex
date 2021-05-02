@@ -3,6 +3,7 @@
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
 \usepackage{array,booktabs}
+\usepackage{amsthm}
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{textcomp}
@@ -29,6 +30,23 @@
 \newcommand{\var}[1]{\mathit{#1}}
 \newcommand{\func}[1]{\mathsf{#1}}
 \newcommand{\iname}[1]{\textsf{#1}}
+
+\theoremstyle{plain} % default
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{lem}[thm]{Lemma}
+\newtheorem{prop}[thm]{Property}
+\newtheorem*{cor}{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{defn}{Definition}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{exercise}{Exercise}[section]
+\newtheorem*{prob}{Problem}
+
+\theoremstyle{remark}
+\newtheorem*{rem}{Remark}
+\newtheorem*{note}{Note}
+\newtheorem{case}{Case}
 
 \begin{document}
 
@@ -564,7 +582,7 @@ same way as \(\func{well\_formed}\).
     matrices}\label{F:wfI}
 \end{figure*}
 
-The important features of the judgements are \(\iname{WF\_Emtpy}\) and
+The important features of the judgements are \(\iname{WF\_Empty}\) and
 \(\iname{WF\_Cons}\). The judgement \(\iname{WF\_Empty}\) corresponds to the
 vacuous case: all elements in an empty list are well-formed with respect to any
 shape (there are no such elements!). The judgment \(\iname{WF\_Cons}\) provides
@@ -645,7 +663,7 @@ spelled out below:
     & \ \, \var{contents} = \func{Matrix}\, (\func{map}\, \func{Scalar}\, (\func{linearize'}\, \var{contents})) \}
 \end{align*}
 
-\paragraph{Linearly indexing a matrix} Given the operation to linearize a
+\paragraph{Linearly indexing a matrix} Given the operation to linearise a
 matrix, one-based linearly indexing is easy. See \S~\ref{S:design_linear_index}
 for details on linear indexing. The function \(\func{nth}\) takes a matrix \(m\)
 and an index \(n\); it returns the one-based linearly indexed content of \(m\)
@@ -659,6 +677,101 @@ same as indexing at \(n=1\), when it should in fact be out of bounds and thus
 case.
 
 \subsection{Key Theorems about Matrices}\label{S:matrix_thm}
+
+Unless otherwise stated, the key theorems are predicated on all matrices
+involved being well-formed.
+
+The key theorems of our proof development are
+\begin{inlist}
+\item that the two different definitions of the well-formed property agree
+    (Theorem~\ref{Th:well_formed_agree});
+\item that \(\func{compute\_shape}\) normalizes by preserving the well-formed
+    property (Theorem~\ref{Th:compute_shape_wf_normalizes}); and
+\item that \(\func{linearize}\) is correct, \textit{i.e.}, that
+    \(\func{linearize'}\) produces a list with size the product of the shape and
+    that \(\func{linearize}\) preserves the well-formed property
+    (Theorems~\ref{Th:linearize_product} and~\ref{Th:linearize_wf}).
+\end{inlist}
+We present these, along with a sketch of their proofs, in order.
+
+\begin{thm}[Well-formed definitions agree]\label{Th:well_formed_agree}
+    For all matrices \(m\), \(m\) is well-formed under the computational
+    definition \(\func{well\_formed}\) if-and-only-if \(m\) is well-formed under
+    the inductive definition \(\func{well\_formedI}\). (See
+    \texttt{well\_formed\_agree} in the Coq
+    development~\cite{zelda_mosaic_proof}.)
+\end{thm}
+
+\begin{proof}
+    We begin with the forward direction and proceed by induction on the contents
+    of \(m\); for each case of the contents, we also consider the cases of the
+    shape. Several cases are immediately contradictory, since the resulting
+    \(m\) could not have been well-formed in the first place. In the remainder,
+    we must prove \(\func{well\_formed}\, m\) implies \(\func{well\_formedI}\,
+    m\).
+
+    The base case is easy: simply use \(\iname{WF\_Empty}\).
+
+    In the inductive case, we can use the well-formed hypothesis together with
+    the induction hypothesis and auxiliary Lemma~\ref{Lem:wfI_all_wf_t} to
+    finish.
+
+    Now the backwards direction. We must prove that \(\func{well\_formedI}\, m\)
+    implies \(\func{well\_formed}\, m\). We proceed by induction on the evidence
+    for the hypothesis \(\func{well\_formedI}\, m\).
+
+    The base cases are straightforward and follow readily from the definition.
+
+    In the inductive case, we can use the inductive hypotheses to conclude.
+\end{proof}
+
+\begin{lem}\label{Lem:wfI_all_wf_t}
+    If all elements of the list \(\var{ms}\) are well-formed (using the inductive
+    definition) with respect to some shape \(t\), then the following matrix is
+    also well-formed: \(\{ \var{shape} = |\var{ms}| :: t; \var{contents} =
+    \func{Matrix}\, \var{ms} \}\).
+\end{lem}
+
+The proof is straightforward by induction on \(\var{ms}\).
+
+\begin{thm}[Computing the shape normalizes it]\label{Th:compute_shape_wf_normalizes}
+    For all matrices \(m\), if \(m\) is well-formed than so is the following
+    matrix: \(\{ \var{shape} = \func{compute\_shape}\, m; \var{contents} =
+    \func{contents}\, m \}\).
+\end{thm}
+
+\begin{proof}
+    We proceed by induction on the contents of \(m\); for each case of the
+    contents, we also consider the cases of the shape. Several cases are
+    immediately contradictory, since the resulting \(m\) could not have been
+    well-formed in the first place.
+
+    The base case is straightforward from the definition of
+    \(\func{well\_formed}\).
+
+    In the inductive case, we have to deal with a \(\func{Matrix}\) of some list
+    \(\var{ms}\). We proceed by case analysis on the list; the empty case is
+    easy. When the list is non-empty, we are left to prove the critical
+    assumption in the definition of \(\func{compute\_shape}\); namely, that all
+    the elements in a well-formed matrix have the same computed shape. This is
+    done by application of the induction hypothesis and observing that any
+    element in the non-empty \(\var{ms}\) has the same computed shape, thanks to
+    Lemma~\ref{Lem:wf_same_shape}.
+\end{proof}
+
+\begin{lem}\label{Lem:wf_same_shape}
+    Given any two matrices \(m_1, m_2\) that are well-formed with respect to the
+    same shape, \(\func{compute\_shape}\, m_1 = \func{compute\_shape}\, m_2\).
+\end{lem}
+
+The proof is straightforward by induction on the shape combined with case
+analysis on the two matrices.
+
+\begin{thm}[Linearize has resulting shape the product of the original]\label{Th:linearize_product}
+\end{thm}
+
+\begin{thm}[Linearize preserves the well-formed property]\label{Th:linearize_wf}
+\end{thm}
 
 \subsection{Advanced Coq for Matrices}\label{S:matrix_coq}
 
