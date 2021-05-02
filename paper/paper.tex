@@ -854,17 +854,17 @@ The same definition is given below:
     \end{cases}
 \end{align*}
 
-\paragraph{Linearizing a matrix} See \S~\ref{S:linearized_indexing} for more
-details on matrix linearization. To define linearization in Coq, we use a
-two-stage unpacking as with other matrix operations. The function
-\(\func{linearize'}\) turns scalars into a singleton list and recursively
-flat-maps itself over matrices to produce the one-dimensional matrix as a list.
-The function \(\func{linearize}\) unpacks a matrix, then transforms the contents
-by wrapping the result of mapping \(\func{linearize'}\) into \(\func{Scalar}\)s
-in a \(\func{Matrix}\) and transforms the shape by taking the product of the
-(normalized) shape of the matrix. Recall that the length of the linearized
-vector is the product of the sizes of all the dimensions. The definitions are
-spelled out below:
+\paragraph{Linearizing a matrix}\label{S:linearize_coq} See
+\S~\ref{S:linearized_indexing} for more details on matrix linearization. To
+define linearization in Coq, we use a two-stage unpacking as with other matrix
+operations. The function \(\func{linearize'}\) turns scalars into a singleton
+list and recursively flat-maps itself over matrices to produce the
+one-dimensional matrix as a list. The function \(\func{linearize}\) unpacks a
+matrix, then transforms the contents by wrapping the result of mapping
+\(\func{linearize'}\) into \(\func{Scalar}\)s in a \(\func{Matrix}\) and
+transforms the shape by taking the product of the (normalized) shape of the
+matrix. Recall that the length of the linearized vector is the product of the
+sizes of all the dimensions. The definitions are spelled out below:
 
 \begin{align*}
     & \func{linearize'}(\var{contents}) \triangleq \\
@@ -944,8 +944,8 @@ We present these, along with a sketch of their proofs, in order.
 \begin{lem}\label{Lem:wfI_all_wf_t}
     If all elements of the list \(\var{ms}\) are well-formed (using the inductive
     definition) with respect to some shape \(t\), then the following matrix is
-    also well-formed: \(\{ \var{shape} = |\var{ms}| :: t; \var{contents} =
-    \func{Matrix}\, \var{ms} \}\).
+    also well-formed in the inductive definition: \(\{ \var{shape} = |\var{ms}|
+    :: t; \var{contents} = \func{Matrix}\, \var{ms} \}\).
 \end{lem}
 
 The proof is straightforward by induction on \(\var{ms}\).
@@ -983,11 +983,64 @@ The proof is straightforward by induction on \(\var{ms}\).
 The proof is straightforward by induction on the shape combined with case
 analysis on the two matrices.
 
-\begin{thm}[Linearize has resulting shape the product of the original]\label{Th:linearize_product}
+\begin{thm}[A linearized matrix has length the product of the shape]\label{Th:linearize_product}
+    For any well-formed matrix \(m\), the length of the linearized contents is
+    equal to the product of the computed shape of the matrix; that is,
+    \(|\func{linearize'}\, (\func{contents}\, m)| = \prod
+    \func{compute\_shape}\, (\func{contents}\, m)\).
 \end{thm}
 
+\begin{proof}
+    We proceed by induction on the evidence for the inductive variant of
+    the well-formed property (thanks to Theorem~\ref{Th:well_formed_agree}).
+
+    The cases for \(\iname{WF\_Empty}\) and \(\iname{WF\_Scalar}\) are
+    straightforward: computation via the definitions shows that both sides are
+    euqal.
+
+    In the inductive case for \(\iname{WF\_Cons}\), we combine a few facts about
+    flat-map, length, and list concatenation with the inductive hypothesis to
+    simplify the proof. The key piece of the proof is to show that the product
+    of the computed shape of some \(\func{Matrix}\, \var{ms}\) is equal to the
+    length of \(\var{ms}\) times the product of the computed shape of some \(m\)
+    (both pieces of the evidence from the inductive judgement, and both
+    with well-formed hypotheses). But this equality is straightforward by case
+    analysis on \(\var{ms}\). The empty case is trivial. In the non-empty case,
+    we know that the elements in the list and \(m\) have the same computed
+    shaped because they are well-formed with respect to the same shape (see
+    Lemma~\ref{Lem:wf_same_shape}). This is enough to finish.
+\end{proof}
+
 \begin{thm}[Linearize preserves the well-formed property]\label{Th:linearize_wf}
+    For any well-formed matrix \(m\), the matrix \(\func{linearize}\, m\) is
+    also well-formed.
 \end{thm}
+
+\begin{proof}
+    We proceed by induction on the contents of \(m\), with the usual case
+    analysis on the shape to eliminate contradictory cases.
+
+    The base case is trivial by the definition of the well-formed property and
+    the linearize function.
+
+    In the inductive case, there are two major statements to prove. Firstly, we
+    must prove that the length of the mapped \(\func{linearize'}\)d list is the
+    product of the computed shape. Secondly, we must prove that all elements in
+    the mapped \(\func{linearize'}\)d list are well-formed. See
+    \S~\ref{S:linearize_coq} for the definition of \(\func{linearize}\) that
+    leads to this mapped list.
+
+    For the first statement, we use the fact that map does not change the length
+    of the list together with Theorem~\ref{Th:linearize_product} to see that we
+    only need to prove that a particular matrix is well-formed. For that proof,
+    we combine Lemma~\ref{Lem:wfI_all_wf_t} with
+    Theorem~\ref{Th:well_formed_agree} and the well-formed hypothesis.
+
+    For the second statement, we only need to show that everything in the
+    mapped \(\func{linearize'}\)d list is a \(\func{Scalar}\)---but we are
+    mapping the \(\func{Scalar}\) constructor over the list, so this is of
+    course true.
+\end{proof}
 
 \subsection{Advanced Coq for Matrices}\label{S:matrix_coq}
 
