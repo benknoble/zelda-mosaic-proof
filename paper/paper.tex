@@ -134,105 +134,243 @@ refined mosaic quality by stitching smaller images, at a performance cost. The
 original presentation is publicly available~\cite{zelda_mosaic_pres}, as is a
 separate video-recording~\cite{zelda_mosaic_vid}.
 
+\begin{figure}[htp]
+    \textbf{Input}: image \(key\_art\), images \(thumbnails\), integer \(size\) \\
+    \textbf{Output}: image \(tiles\)
+    \begin{algorithmic}
+        \STATE{\(tiles \gets \textrm{MAT2TILES}(key\_art, size, size)\)}
+        \FOR{\(tile \in tiles\)}
+            \FOR{\(thumbnail, i \in thumbnails, [1..|thumbnails| ]\)}
+                \STATE{\(mses_i \gets \textrm{immse}(tile, thumbnail)\)}
+            \ENDFOR
+            \STATE{\(best\_indices \gets \textrm{find} (mses = \min mses)\)}
+            \STATE{\(best\_index \gets best\_indices_0\)}
+            \STATE{\(tile \gets thumbnails_{best\_index}\)}
+        \ENDFOR
+    \RETURN{\(tiles\)}
+    \end{algorithmic}
+    \caption{Algorithm: Version 1}\label{alg:v1}
+\end{figure}
+
+\begin{figure}[htp]
+    \textbf{Input}: image \(key\_art\), images \(thumbnails\), integer \(size\) \\
+    \textbf{Output}: image \(tiles\)
+    \begin{algorithmic}
+        \STATE{\(tiles \gets \textrm{MAT2TILES}(key\_art, size, size)\)}
+        \STATE{\(used \gets \emptyset\)}
+        \STATE{\(threshold \gets 1\)}
+        \IF{\(|thumbnails| < |tiles|\)}
+            \STATE{\(threshold \gets \lceil{|tiles| / |thumbnails|}\rceil\)}
+        \ENDIF
+        \FOR{\(tile \in tiles\)}
+            \FOR{\(thumbnail, i \in thumbnails, [1..|thumbnails| ]\)}
+                \STATE{\(mses_i \gets \textrm{immse}(tile, thumbnail)\)}
+            \ENDFOR
+            \STATE{\(best\_indices \gets \textrm{find} (mses = \min mses)\)}
+            \STATE{\(best\_index \gets best\_indices_0\)}
+            \WHILE{\(used_{best\_index} \ge threshold\)}
+                \STATE{\(mses_{best\_index} \gets \infty\)}
+                \STATE{\(best\_indices \gets \textrm{find} (mses = \min mses)\)}
+                \STATE{\(best\_index \gets best\_indices_0\)}
+            \ENDWHILE
+            \STATE{increment \(used_{best\_index}\)}
+            \STATE{\(tile \gets thumbnails_{best\_index}\)}
+        \ENDFOR
+        \RETURN{\(tiles\)}
+    \end{algorithmic}
+    \caption{Algorithm: Version 2}\label{alg:v2}
+\end{figure}
+
+\begin{figure}[htp]
+    \textbf{Input}: image \(key\_art\), images \(thumbnails\), integer \(size\) \\
+    \textbf{Output}: image \(tiles\)
+    \begin{algorithmic}
+        \STATE{}\COMMENT{Repeat Version 2}
+        \STATE{\(tiles \gets \textrm{Version2}(key\_art, thumbnails, size)\)}
+        \STATE{\(tiles \gets \textrm{imgaussfilt}(tiles)\)}
+        \STATE{\(strip\_size \gets \lfloor{size / 8}\rfloor\)}
+        \STATE{}\COMMENT{Blur by averaging}
+        \FOR{horizontal \(strip \in tiles\)}
+            \STATE{\(strip \gets \textrm{mean}({strip})\)}
+        \ENDFOR
+        \FOR{vertical \(strip \in tiles\)}
+            \STATE{\(strip \gets \textrm{mean}({strip})\)}
+        \ENDFOR
+        \RETURN{\(tiles\)}
+    \end{algorithmic}
+    \caption{Algorithm: Version 3}\label{alg:v3}
+\end{figure}
+
 Our original goal was to examine these algorithms as implemented in the \matlab\
 source and prove, if possible, their termination given well-conditioned input.
 With some of the work now behind us, we have a better idea of what this project
 entails and how we will be able to reach the finish line.
 
 \section{Problem Description}
-Many non-trivial programs make use of arrays, and our \texttt{zelda-mosaic} program is no different. Because our goal was to prove the termination of the program when given a well-formed input and the core data structure modified throughout the program was an image (represented as an array), it is helpful to first describe the array operations used and the invariants of an array that contribute to ``well-formed-ness".
+
+Many non-trivial programs make use of arrays, and our \texttt{zelda-mosaic}
+program is no different. Because our goal was to prove the termination of the
+program when given a well-formed input and the core data structure modified
+throughout the program was an image (represented as an array), it is helpful to
+first describe the array operations used and the invariants of an array that
+contribute to the \emph{well-formed} property.
 
 \subsection{Array Usage}
-\matlab's support for multi-dimensional arrays makes it amenable to image-processing tasks such as ours. The algorithms we wrote are described at high-level in pseudocode in Figures \figurename~\ref{alg:v1}, \ref{alg:v2}, and \ref{alg:v3}, but here we explain them in layman's terms to help motivate some features of our proof.\\
 
-As described in our pseudocode, the inputs to our program were a piece of \textit{key art} to be recomposed with \textit{thumbnails} of a certain \textit{size}, defined as the width and height of the thumbnails (all have been coerced to be square-shaped). The original representation of \textit{key art} in \matlab is a two-dimensional array (with indices corresponding to a particular pixel's row and column) containing an additional array of three values - one each for the red, green, and blue color channels. So far, this is an array of three dimensions. We then divide this image into \textit{chunks}, where each \textit{chunk} will be replaced by a \textit{thumbnail} in the final product. For \textit{key art} of dimensions $m \times n$ (with $m$ corresponding to and $n$ corresponding to columns), each image will be divided into $(m / size) \times (n / size)$ \textit{chunks}, which will each be replaced by a \textit{thumbnail} as appropriate. These \textit{chunks}, each of size $size \times size$, are then stored in a two-dimensional array, with each \textit{chunk} retaining its original placement in the \textit{key art}. As a result we now have a five-dimensional array, and in order to access a particular value from a color channel, we need the following values:
+\matlab's support for multi-dimensional arrays makes it amenable to
+image-processing tasks such as ours. The algorithms we wrote are described at
+high-level in pseudocode in \figurename{s}~\ref{alg:v1},~\ref{alg:v2},
+and~\ref{alg:v3}, but here we explain them in layman's terms to help motivate
+some features of our proof.
+
+As described in our pseudocode, the inputs to our program were a piece of
+\emph{key art} to be recomposed with \emph{thumbnails} of a certain \emph{size},
+which is the width and height of the square thumbnails. The original
+representation of the key art in \matlab\ is a two-dimensional array (with
+indices corresponding to a particular pixel's row and column) containing an
+additional array of three values---one each for the red, green, and blue color
+channels. In total, the array has three dimensions. We then divide this image
+into \emph{chunks}, where each chunk will be replaced by a
+thumbnail in the final product. For key art of dimensions $m
+\times n$ (with $m$ corresponding to rows and $n$ corresponding to columns), each
+image will be divided into $(m / \var{size}) \times (n / \var{size})$ chunks, which
+will each be replaced by a thumbnail as appropriate. These chunks,
+each of size $\var{size} \times \var{size}$, are then stored in a two-dimensional array,
+with each chunk retaining its original placement in the key art.
+As a result we now have a five-dimensional array, and in order to access a
+particular value from a color channel, we need the following values:
 
 \begin{itemize}
-\item the \textit{chunk row} it is in
-\item the \textit{chunk column} it is in
-\item the \textit{x-offset} of the pixel into its chunk
-\item the \textit{y-offset} of the pixel into its chunk
-\item the \textit{color channel} desired out of red, green, and blue
+\item the \emph{chunk row} it is in
+\item the \emph{chunk column} it is in
+\item the \emph{x offset} of the pixel into its chunk
+\item the \emph{y offset} of the pixel into its chunk
+\item the \emph{color channel} desired out of red, green, and blue
 \end{itemize}
 
-Thus, once a piece of \textit{key art} is successfully divided into \textit{chunks}, the image is effectively represented as an array whose dimensions correspond to the above values. The \textit{chunks} are iterated through in row-major order, gradually being replaced in-place by \textit{thumbnails}. Consequently, the state of our core array maintains some matrix-like properties that are supported by \matlab\@ arrays, but not particular to \matlab\@ in general:
+Thus, once a piece of key art is successfully divided into chunks, the image is
+effectively represented as an array whose dimensions correspond to the above
+values. The chunks are iterated through in row-major order, gradually being
+replaced in-place by thumbnails. Consequently, the state of our core array
+maintains some matrix-like properties that are supported by \matlab\ arrays,
+but not particular to \matlab\ in general:
 
 \begin{itemize}
-    \item The shape of a matrix \textbf{$M$} can be described by a list of \textit{d} dimensions, where each dimension's value $v_i$ refers to the number of elements held along that dimension. For example, an array with dimensions $3 \times 4 \times 2$ contains 3 arrays, each of which contains 4 arrays of 2 elements. $v_1 = 3$, $v_2 = 4$, and $v_3 = 2$.
-    \item Once the shape of \textbf{$M$} is defined and all of the elements have been populated, the shape will not change and all of the elements will remain populated. For example, the aforementioned $3 \times 4 \times 2$ array must always contain 3 arrays, each of which contains 4 arrays of 2 elements.
-    \item Each $i$-th dimension from $1$ to $d-1$ must contain $v_i$ elements, each of which is an array of length $v_{i+1}$; in other words, the length of each element in a particular dimension must be identical to one another.
+    \item The shape of a matrix \(M\) can be described by a list of \(d\)
+        dimensions, where each dimension's value \(v_i\) refers to the number of
+        elements held along that dimension. For example, an array with
+        dimensions \(3 \times 4 \times 2\) contains 3 arrays, each of which
+        contains 4 arrays of 2 elements. The dimensions list contains \(v_1 =
+        3\), \(v_2 = 4\), and \(v_3 = 2\).
+    \item Once the shape of \(M\) is defined and all of the elements have been
+        populated, the shape will not change and all of the elements will remain
+        populated. For example, the aforementioned \(3 \times 4 \times 2\) array
+        must always contain 3 arrays, each of which contains 4 arrays of 2
+        elements.
+    \item Each \(i\)-the dimension from \(1\) to \(d-1\) must contain \(v_i\)
+        elements, each of which is an array of length \(v_{i+1}\); in other
+        words, the length of each element in a particular dimension must be
+        identical to one another.
 \end{itemize}
 
-In summary, these properties enforce a notion of ``well-formed-ness" that ensures that the size $v_i$ of each dimension remains fixed and that all element in a particular dimension $i$ have the same length as one another. This property is generally true of matrices, hence the references to both an ``arrays" and ``matrices" in this section. Unless otherwise noted, ``array" refers to the generic \matlab\@ object and ``matrix" refers to an ``array" with these properties when discussed in the scope of this paper.
+In summary, these properties describe the notion of a ``well-formed'' matrix
+that ensures that the size \(v_i\) of each dimension remains fixed and that all
+elements in a particular dimension \(i\) have the same length as one another.
+This property is generally true of matrices, hence the references to both an
+``arrays'' and ``matrices'' in this section. Unless otherwise noted, ``array''
+refers to the generic \matlab\ object and ``matrix'' refers to an ``array'' with
+these properties when discussed in the scope of this paper.
 
-\subsection{Operations} \matlab\@ supports a number of operations that can be used to manipulate arrays, but only a subset are used in our program. To illustrate the operations used, we begin with the following visualization of a three-dimensional array \textbf{$E$} with dimensions $3 \times 4 \times 2$, as it is used in \matlab:\\
+\subsection{Operations}
+
+\matlab\ supports a number of operations that can be used to manipulate arrays,
+but only a subset are used in our program. To illustrate the operations used, we
+begin with a visualization of a three-dimensional array \(E\) with dimensions
+\(3 \times 4 \times 2\) below and discuss how it is used in \matlab.
 
 % Code adapted from: https://tex.stackexchange.com/questions/300109/simple-visualization-of-3d-matrix
 
-\begin{figure}[h!]
-    \centering
+\begin{center}
     \begin{tikzpicture}[every node/.style={anchor=north east,fill=white, minimum width=.7cm}]
-    \matrix (mA) [draw,matrix of math nodes]
-    {
-    1 & 3 & 5 & 7 \\
-    2 & 4 & 6 & 8 \\
-    };
-    
-    \matrix (mB) [draw,matrix of math nodes] at ($(mA.south west)-(-1.5, .1)$)
-    {
-    9 & 11 & 13 & 15 \\
-    10 & 12 & 14 & 16 \\
-    };
-    
-    \matrix (mC) [draw,matrix of math nodes] at ($(mB.south west)-(-1.5, .1)$)
-    {
-    17 & 19 & 21 & 23 \\
-    18 & 20 & 22 & 24 \\
-    };
-    
-    \draw[dashed](mA.north east)--(mC.north east);
-    \draw[dashed](mA.north west)--(mC.north west);
-    \draw[dashed](mA.south east)--(mC.south east);
-    \end{tikzpicture}
+        \matrix (mA) [draw,matrix of math nodes]
+        {
+            1 & 3 & 5 & 7 \\
+            2 & 4 & 6 & 8 \\
+        };
 
-\end{figure}
+        \matrix (mB) [draw,matrix of math nodes] at ($(mA.south west)-(-1.5, .1)$)
+        {
+            9 & 11 & 13 & 15 \\
+            10 & 12 & 14 & 16 \\
+        };
+
+        \matrix (mC) [draw,matrix of math nodes] at ($(mB.south west)-(-1.5, .1)$)
+        {
+            17 & 19 & 21 & 23 \\
+            18 & 20 & 22 & 24 \\
+        };
+
+        \draw[dashed](mA.north east)--(mC.north east);
+        \draw[dashed](mA.north west)--(mC.north west);
+        \draw[dashed](mA.south east)--(mC.south east);
+    \end{tikzpicture}
+\end{center}
 
 \subsubsection{Element Access}
-For the matrix \textbf{$E$}, each element would be indexed according to the following mapping. Under this scheme, for example, the element $8$ in \textbf{$E$} would have the index $(1, 4, 2)$. This indexing scheme is the general pattern used to access one particular element out of a multi-dimensional array. Note that arrays in \matlab\@ have indices starting at 1.
 
-\begin{figure}[h!]
-    \centering
+For the matrix \(E\), each element would be indexed according to the following
+mapping. Under this scheme, for example, the element \(8\) in \(E\) would
+have the index \((1, 4, 2)\). This indexing scheme is the general pattern used to
+access one particular element out of a multi-dimensional array. Note that arrays
+in \matlab\ have indices starting at 1. The indexing scheme is demonstrated
+below.
+
+\begin{center}
     \begin{tikzpicture}
-    \def\xs{1} %shift in x direction
-    \def\ys{1.5} %shift in y direction
-    \def\nm{3} % number of 2d matrices in the 3d matrix
-    \foreach \x in {1,2,...,\nm}
-    {
-    \matrix [draw, % for the rectangle border
-             fill=white, % so that it is not transparent
-             ampersand replacement=\&] %see explanation
-    (mm\x)%give the matrix a name
-    at(-\x * \xs, -\x * \ys) %shift the matrix
-    {
-        \node {(\x,1,1)}; \& \node {(\x,2,1)}; \& \node {(\x,3,1)}; \& \node {(\x,4,1)};\\
-        \node {(\x,1,2)}; \& \node {(\x,2,2)}; \& \node {(\x,3,2)}; \& \node {(\x,4,2)};\\
-    };
-    }
-    
-    \draw [dashed,gray](mm1.north west) -- (mm\nm.north west);
-    \draw [dashed,gray](mm1.north east) -- (mm\nm.north east);
-    \draw [dashed,gray](mm1.south east) -- (mm\nm.south east);
+        \def\xs{1} %shift in x direction
+        \def\ys{1.5} %shift in y direction
+        \def\nm{3} % number of 2d matrices in the 3d matrix
+        \foreach \x in {1,2,...,\nm}
+        {
+            \matrix [draw, % for the rectangle border
+            fill=white, % so that it is not transparent
+            ampersand replacement=\&] %see explanation
+            (mm\x)%give the matrix a name
+            at(-\x * \xs, -\x * \ys) %shift the matrix
+            {
+                \node {(\x,1,1)}; \& \node {(\x,2,1)}; \& \node {(\x,3,1)}; \& \node {(\x,4,1)};\\
+                \node {(\x,1,2)}; \& \node {(\x,2,2)}; \& \node {(\x,3,2)}; \& \node {(\x,4,2)};\\
+            };
+        }
+
+        \draw [dashed,gray](mm1.north west) -- (mm\nm.north west);
+        \draw [dashed,gray](mm1.north east) -- (mm\nm.north east);
+        \draw [dashed,gray](mm1.south east) -- (mm\nm.south east);
     \end{tikzpicture}
-\end{figure}
+\end{center}
 
 
-\subsubsection{Linearized Indexing} \label{linearizedindexing}
-Note that in $E$, elements are ordered in ascending order with respect to their indexing. First, sub-array $(1)$ is populated, and $(1, 1)$ is the first array within it, so it is filled with elements $1$ and $2$. Array $(1, 2)$ is then populated by elements $3$ and $4$. After all four of \textbf{$E$}'s sub-arrays have been populated, sub-array $(2)$ is populated, and so on until the array is full.
+\subsubsection{Linearized Indexing}\label{S:linearized_indexing}
 
-Given the numbering scheme in $E$, one can imagine a ``flattened" version of $E$ that is simply an ordered one-dimensional array containing all of $E$'s elements; simply put, an array containing the elements $1$ to $24$, in numerical order. \matlab\@ actually allows arrays of arbitrarily many dimensions to be logically ``flattened" during accesses so that elements can be accessed with one index, like in a one-dimensional array. We found this property to be somewhat interesting and challenging to model, and we refer to the ``flattening" of a matrix as ``linearization". 
+Note that in \(E\), elements are ordered in ascending order with respect to
+their indexing. First, sub-array \((1)\) is populated, and \((1, 1)\) is the
+first array within it, so it is filled with elements \(1\) and \(2\). Array
+\((1, 2)\) is then populated by elements \(3\) and \(4\). After all four of
+\(E\)'s sub-arrays have been populated, sub-array \((2)\) is populated, and so
+on until the array is full.
 
-The process of linearizing a matrix is perhaps
-better explained with a two-dimensional example. Imagine a general two-dimensional $3 \times 4$ matrix, such as the one below, where:
+Given the numbering scheme in \(E\), one can imagine a ``flattened'' version of
+\(E\) that is an one-dimensional array containing all of \(E\)'s elements;
+simply put, an array containing the elements \(1\) to \(24\) in numerical
+order. \matlab\ actually allows arrays of arbitrarily many dimensions to be
+logically flattened during accesses so that elements can be accessed with one
+index, like in a one-dimensional array. We found this property to be somewhat
+interesting and challenging to model, and we refer to the flattening of a matrix
+as ``linearization.''
+
+The process of linearizing a matrix is perhaps better explained with a
+two-dimensional example. Imagine a general two-dimensional \(3 \times 4\) matrix,
+such as the one below, where:
 \begin{equation*}
     \begin{bmatrix}
         a & b & c & d \\
@@ -262,64 +400,119 @@ vector is always the product of the sizes of the dimensions. To see this, note
 that this product counts the number of elements in the matrix and that the
 linearized matrix has the same number of elements in a single dimension.
 
-Under this scheme, any element in a matrix can be accessed via its position in the linearized version of that matrix. For example, the element $12$ in \textbf{$E$} can be accessed by the index $(12)$ (note that 12 refers to the index, not the elements) and in the previous example, the element $f$ can be accessed by the index $(6)$.
+Under this scheme, any element in a matrix can be accessed via its position in
+the linearized version of that matrix. For example, the element \(12\) in \(E\)
+can be accessed by the index \((12)\) and in the previous example, the element
+\(f\) can be accessed by the index \((6)\).
 
-\subsubsection{Ranged Indexing} \label{rangedindexing}
-Broadly speaking, \matlab\@ supports the notion of a range of numbers specified by a starting number and a stopping number, which includes every number between the starting number and the stopping number (inclusive). This abstraction can be used to access or assign elements within a sub-matrix of a particular matrix. For example, suppose in matrix $E$ you only cared about the first matrix in the first dimension, the second/third/fourth columns within the second dimension, and the second row within the third dimension. This sub-matrix can be specified by the index $(1, 2:4, 2)$ and would return the matrix:
+\subsubsection{Ranged Indexing}\label{S:ranged_indexing}
+
+Broadly speaking, \matlab\ supports the notion of a range of numbers specified
+by a starting index and a stopping index, which includes every index between the
+starting index and the stopping index (inclusive). This abstraction can be used
+to access or assign elements within a sub-matrix of a particular matrix. For
+example, suppose in matrix \(E\) you only cared about the first matrix in the
+first dimension; the second, third, and fourth columns within the second
+dimension; and the second row within the third dimension. This sub-matrix can be
+specified by the index \((1, 2:4, 2)\) and would be the matrix
+
 \begin{equation*}
     \begin{bmatrix}
         4 & 6 & 8
-    \end{bmatrix}
+    \end{bmatrix}.
 \end{equation*}
 
-Suppose that you wanted to get the second/third/fourth columns within the second dimension and second row within the third dimension for \textit{all three} of the outer-most dimension of \textbf{$E$} but did not know a priori how many elements it had. \matlab\@ supports an ``inclusive range" operator, represented by a colon \textbf{:}, which is taken to mean the range encompassing all values in a particular dimension. The sub-matrix described here would be specified by the index $(:, 2:4, 2)$ and represents the following matrix:
+Suppose that you wanted to get the second, third, and fourth columns within the
+second dimension and the second row within the third dimension for \emph{all
+three} of the outer-most dimension of \(E\) but did not know \textit{a priori}
+how many elements it had. \matlab\ supports an ``inclusive range'' operator,
+represented by a colon \texttt{:}. This operator represents the range
+encompassing all values in a particular dimension. The sub-matrix described here
+would be specified by the index $(:, 2:4, 2)$ and represents the following
+matrix:
 
-\begin{figure}[h!]
-    \centering
+\begin{center}
     \begin{tikzpicture}[every node/.style={anchor=north east,fill=white, minimum width=.7cm}]
-    \matrix (mA) [draw,matrix of math nodes]
-    {
-    4 & 6 & 8 \\
-    };
-    
-    \matrix (mB) [draw,matrix of math nodes] at ($(mA.south west)-(-1.5, .1)$)
-    {
-    12 & 14 & 16 \\
-    };
-    
-    \matrix (mC) [draw,matrix of math nodes] at ($(mB.south west)-(-1.5, .1)$)
-    {
-    20 & 22 & 24 \\
-    };
-    
-    \draw[dashed](mA.north east)--(mC.north east);
-    \draw[dashed](mA.north west)--(mC.north west);
-    \draw[dashed](mA.south east)--(mC.south east);
+        \matrix (mA) [draw,matrix of math nodes]
+        {
+            4 & 6 & 8 \\
+        };
+
+        \matrix (mB) [draw,matrix of math nodes] at ($(mA.south west)-(-1.5, .1)$)
+        {
+            12 & 14 & 16 \\
+        };
+
+        \matrix (mC) [draw,matrix of math nodes] at ($(mB.south west)-(-1.5, .1)$)
+        {
+            20 & 22 & 24 \\
+        };
+
+        \draw[dashed](mA.north east)--(mC.north east);
+        \draw[dashed](mA.north west)--(mC.north west);
+        \draw[dashed](mA.south east)--(mC.south east);
     \end{tikzpicture}
+\end{center}
 
-\end{figure}
+\subsubsection{Matrix Operations}\label{S:matrix_operations}
 
-\subsubsection{Matrix Operations} \label{matrixoperations}
-Details about \matlab\@ arrays pertaining to indexing are perhaps some of their most interesting features, but we also use some typical matrix operators in our program. Generally speaking, matrix operators can be generalized to any number of dimensions, as long as the dimensions of the arrays agree for the operation in question. There are two broad classes of matrix operators that we make use of:
+Details about \matlab\ arrays pertaining to indexing are perhaps some of their
+most interesting features, but we also use some typical matrix operators in our
+program. Generally speaking, matrix operators can be generalized to any number
+of dimensions, as long as the dimensions of the arrays agree for the operation
+in question. There are two broad classes of matrix operators that we make use
+of:
 
-\begin{itemize}
-    \item \textbf{Element-wise}: For two matrices of the same dimensionality, the operator is applied on each of the two elements containing the same index in the two matrices.
-    \item \textbf{All Elements}: For an array and a scalar, the operation and scalar (e.g. add 1) is applied to every element in the matrix.
-\end{itemize}
+\begin{description}
+    \item[Element-wise] For two matrices of the same dimensionality, the
+        operator is applied on each of the two elements containing the same
+        index in the two matrices.
+    \item[All Elements] For an array and a scalar, the operation and scalar
+        (\textit{e.g.}, add 1) is applied to every element in the matrix.
+\end{description}
 
 \subsection{Modeling the Problem}
-Aside from the core matrix operations, we anticipated that we would need to model the state of our program at all points of execution since our goal was to prove termination. To this end, we would need to identify all of the syntax that we use in our program and specify their associated semantics. The upshot of modeling our program in this way would be the ability to remains to prove its termination of our given that certain preconditions hold. 
 
-Hoare logic~\cite{Hoare_1969} is a type of logic that is often used to solve problems of this class. Partial Hoare logic is a weak statement about programs; namely, given preconditions \(P\) and postconditions \(Q\) and a program \(C\), the Hoare triple \(\{P\}C\{Q\}\) asserts that \emph{if} \(C\) terminates, then the pre-conditions imply the post-conditions. Total Hoare logic, by contrast, is a stronger version of this claim: \(C\) is asserted to terminate. Thus a proof in total Hoare logic necessitates a proof that \(C\) terminates; the inference rules are accordingly adjusted. The primary adjustment is to the rule for while
+Aside from the core matrix operations, we anticipated that we would need to
+model the state of our program at all points of execution since our goal was to
+prove termination. To this end, we would need to identify all of the syntax that
+we use in our program and specify their associated semantics. The upshot of
+modeling our program in this way would be the ability to remains to prove its
+termination of our given that certain preconditions hold.
+
+Hoare logic~\cite{Hoare_1969} is a type of logic that is often used to solve
+problems of this class. Partial Hoare logic is a weak statement about programs;
+namely, given preconditions \(P\) and postconditions \(Q\) and a program \(C\),
+the Hoare triple \(\{P\}C\{Q\}\) asserts that \emph{if} \(C\) terminates, then
+the pre-conditions imply the post-conditions. Total Hoare logic, by contrast, is
+a stronger version of this claim: \(C\) is asserted to terminate. Thus a proof
+in total Hoare logic necessitates a proof that \(C\) terminates; the inference
+rules are accordingly adjusted. The primary adjustment is to the rule for while
 loops, which are guaranteed to terminate by relation to a decreasing sequence
 (with respect to a well-founded order).
 
-When we started this project, we had in mind that the preconditions would be statements about the program's inputs; for example, ``the length and width of \textit{key art} are always multiples of the \textit{thumbnails'} size". Ultimately, we did not get far enough in modeling our program to devise a set of pre-conditions, but the point remains that we needed to be able to model the control flow of our entire program in order to do this.
+When we started this project, we had in mind that the preconditions would be
+statements about the program's inputs; for example, ``the length and width of
+key art are always multiples of the thumbnails' size.'' Ultimately, we did not
+get far enough in modeling our program to devise a set of pre-conditions, but
+the point remains that we needed to be able to model the control flow of our
+entire program in order to do this.
 
-\section{Design / Approach}
+\section{Design and Approach}\label{S:design}
 
-We first set out to define the syntax and semantics of the subset of \matlab\ used in our program, making the assumption that once we finished this it would be somewhat trivial to bind the defined syntax to behavior in Coq. Ultimately, the majority of our effort in this project ended going towards the implementation of our multi-dimensional matrix operations, which was made difficult by the number of properties that our matrices uphold as well as our desire to write generic Coq functions that would work on matrices of arbitrarily many dimensions. We spent a while working with Coq's built-in \textsf{Vector} type before coming to the conclusion that its dependent typing caused difficulties in behavior specification. To this end, we ended up implementing our own data types to describe the state of matrices in our program; this task was unexpectedly challenging and once we began working on it, it became the only thing we worked on for the remainder of the project.
-
+We first set out to define the syntax and semantics of the subset of \matlab\
+used in our program, making the assumption that once we finished this it would
+be somewhat trivial to bind the defined syntax to behavior in Coq. Ultimately,
+the majority of our effort in this project ended going towards the
+implementation of our multi-dimensional matrix operations, which was made
+difficult by the number of properties that our matrices uphold as well as our
+desire to write generic Coq functions that would work on matrices of arbitrarily
+many dimensions. We spent a while working with Coq's built-in \textsf{Vector}
+type before coming to the conclusion that its dependent typing caused
+difficulties in behavior specification. To this end, we ended up implementing
+our own data types to describe the state of matrices in our program; this task
+was unexpectedly challenging and once we began working on it, it became the only
+thing we worked on for the remainder of the project.
 
 \subsection{\mmatlab}\label{S:mmatlab}
 
@@ -386,7 +579,7 @@ inductive types, shown in \figurename~\ref{fig:inductivetypeexp} and
 
 Much of the abstract syntax is relatively self-explanatory, so complete
 definitions are elided here. However, we wish to draw attention to some of the
-less apparent and more interesting syntax present in \mmatlab\@:
+less apparent and more interesting syntax present in \mmatlab:
 
 \begin{itemize}
 
@@ -396,14 +589,16 @@ less apparent and more interesting syntax present in \mmatlab\@:
         number and the addition of two matrices results in element-wise
         addition, as one might expect. However, the sum of a number and a
         matrix, is a matrix with all elements incremented by the number. Similar
-        behaviors hold for \textsf{MultExp} and \textsf{DivExp}. See Section \ref{matrixoperations} for the distinction between these operators.
-        
+        behaviors hold for \textsf{MultExp} and \textsf{DivExp}.
+
     \item \textsf{RangeExp}: Like Python, \matlab\ has an expression where a
         starting number and stopping number may be provided, generating an
-        inclusive list of all numbers between them. This is discussed in Section \ref{rangedindexing}
-        
-    \item \textsf{IndexExp}: In support of the RangeExp expression, the syntax to access elements from an array is overloaded in \matlab\@. They
+        inclusive list of all numbers between them. This is discussed in
+        \S~\ref{S:ranged_indexing}.
 
+    \item \textsf{IndexExp}: This expression pairs a variable with an indexer,
+        which can be an almost arbitrary expression. \matlab\ does restrict the
+        syntactic placement of certain indexing operations.
 
     \item \textsf{SqueezeExpr}: For multi-dimensional arrays, sometimes the size
         of a particular dimension will be 1. \texttt{squeeze} is a function that
@@ -449,12 +644,12 @@ mention the beginning of our work on multi-dimensional and range-based indexing.
 
 \subsubsection{The matrix type}
 
-As mentioned in \S~\ref{S:design_dependent}, our original formulation of
-matrices as nested dependent \texttt{Vector.t}s quickly grew in complexity.
-We abandoned that approach in favor of a type that is not guaranteed to behave
-well, but whose definition makes defining operations more
-natural~\cite{SO_2021_2}. This approach removes the proofs that dependent types
-provide automatically, so we have to give those ourselves.
+As mentioned in \S~\ref{S:design}, our original formulation of matrices as
+nested dependent \texttt{Vector.t}s quickly grew in complexity. We abandoned
+that approach in favor of a type that is not guaranteed to behave well, but
+whose definition makes defining operations more natural~\cite{SO_2021_2}. This
+approach removes the proofs that dependent types provide automatically, so we
+have to give those ourselves.
 
 The new design pairs the dimensionality of a matrix, called its \emph{shape},
 with its \emph{contents}. The pairing is done via \emph{Record} types (see the
@@ -659,7 +854,7 @@ The same definition is given below:
     \end{cases}
 \end{align*}
 
-\paragraph{Linearizing a matrix} See \S~\ref{S:design_linearize} for more
+\paragraph{Linearizing a matrix} See \S~\ref{S:linearized_indexing} for more
 details on matrix linearization. To define linearization in Coq, we use a
 two-stage unpacking as with other matrix operations. The function
 \(\func{linearize'}\) turns scalars into a singleton list and recursively
@@ -684,7 +879,7 @@ spelled out below:
 \end{align*}
 
 \paragraph{Linearly indexing a matrix} Given the operation to linearise a
-matrix, one-based linearly indexing is easy. See \S~\ref{S:design_linear_index}
+matrix, one-based linearly indexing is easy. See \S~\ref{S:linearized_indexing}
 for details on linear indexing. The function \(\func{nth}\) takes a matrix \(m\)
 and an index \(n\); it returns the one-based linearly indexed content of \(m\)
 at \(n\) (wrapped in the option constructor \(\func{Some}\)) if \(n\) is in
@@ -694,7 +889,8 @@ zero-based indexing, we use \(n-1\). We should note that the current version of
 \(\func{nth}\) has the subtle bug that indexing at \(n=0\) currently returns the
 same as indexing at \(n=1\), when it should in fact be out of bounds and thus
 \(\func{None}\)---a simple \texttt{if} or \texttt{match} guard would cover this
-case.
+case. We note that our linear indexing supports only a single index, while
+\matlab\ allows any index prior to the last to start linearization.
 
 \subsection{Key Theorems about Matrices}\label{S:matrix_thm}
 
@@ -850,73 +1046,6 @@ whether checks for undesired behavior (\emph{e.g.}, dynamic type mismatches)
 should be implemented in the underlying functions or in a semantic check.
 
 
-
-\begin{figure}[!t]
-    \textbf{Input}: image \(key\_art\), images \(thumbnails\), integer \(size\) \\
-    \textbf{Output}: image \(tiles\)
-    \begin{algorithmic}
-        \STATE{\(tiles \gets \textrm{MAT2TILES}(key\_art, size, size)\)}
-        \FOR{\(tile \in tiles\)}
-            \FOR{\(thumbnail, i \in thumbnails, [1..|thumbnails|]\)}
-                \STATE{\(mses_i \gets \textrm{immse}(tile, thumbnail)\)}
-            \ENDFOR
-            \STATE{\(best\_indices \gets \textrm{find} (mses = \min mses)\)}
-            \STATE{\(best\_index \gets best\_indices_0\)}
-            \STATE{\(tile \gets thumbnails_{best\_index}\)}
-        \ENDFOR
-    \RETURN{\(tiles\)}
-    \end{algorithmic}
-    \caption{Algorithm: Version 1}\label{alg:v1}
-\end{figure}
-
-\begin{figure}[!t]
-    \textbf{Input}: image \(key\_art\), images \(thumbnails\), integer \(size\) \\
-    \textbf{Output}: image \(tiles\)
-    \begin{algorithmic}
-        \STATE{\(tiles \gets \textrm{MAT2TILES}(key\_art, size, size)\)}
-        \STATE{\(used \gets \emptyset\)}
-        \STATE{\(threshold \gets 1\)}
-        \IF{\(|thumbnails| < |tiles|\)}
-            \STATE{\(threshold \gets \lceil{|tiles| / |thumbnails|}\rceil\)}
-        \ENDIF
-        \FOR{\(tile \in tiles\)}
-            \FOR{\(thumbnail, i \in thumbnails, [1..|thumbnails|]\)}
-                \STATE{\(mses_i \gets \textrm{immse}(tile, thumbnail)\)}
-            \ENDFOR
-            \STATE{\(best\_indices \gets \textrm{find} (mses = \min mses)\)}
-            \STATE{\(best\_index \gets best\_indices_0\)}
-            \WHILE{\(used_{best\_index} \ge threshold\)}
-                \STATE{\(mses_{best\_index} \gets \infty\)}
-                \STATE{\(best\_indices \gets \textrm{find} (mses = \min mses)\)}
-                \STATE{\(best\_index \gets best\_indices_0\)}
-            \ENDWHILE
-            \STATE{increment \(used_{best\_index}\)}
-            \STATE{\(tile \gets thumbnails_{best\_index}\)}
-        \ENDFOR
-        \RETURN{\(tiles\)}
-    \end{algorithmic}
-    \caption{Algorithm: Version 2}\label{alg:v2}
-\end{figure}
-
-\begin{figure}[!t]
-    \textbf{Input}: image \(key\_art\), images \(thumbnails\), integer \(size\) \\
-    \textbf{Output}: image \(tiles\)
-    \begin{algorithmic}
-        \STATE{}\COMMENT{Repeat Version 2}
-        \STATE{\(tiles \gets \textrm{Version2}(key\_art, thumbnails, size)\)}
-        \STATE{\(tiles \gets \textrm{imgaussfilt}(tiles)\)}
-        \STATE{\(strip\_size \gets \lfloor{size / 8}\rfloor\)}
-        \STATE{}\COMMENT{Blur by averaging}
-        \FOR{horizontal \(strip \in tiles\)}
-            \STATE{\(strip \gets \textrm{mean}({strip})\)}
-        \ENDFOR
-        \FOR{vertical \(strip \in tiles\)}
-            \STATE{\(strip \gets \textrm{mean}({strip})\)}
-        \ENDFOR
-        \RETURN{\(tiles\)}
-    \end{algorithmic}
-    \caption{Algorithm: Version 3}\label{alg:v3}
-\end{figure}
 
 \section{Goals and Timeline}
 
