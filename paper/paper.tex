@@ -285,8 +285,8 @@ these properties when discussed in the scope of this paper.
 
 \matlab\ supports a number of operations that can be used to manipulate arrays,
 but only a subset are used in our program. To illustrate the operations used, we
-begin with a visualization of a three-dimensional array \(E\) with dimensions
-\(3 \times 4 \times 2\) below and discuss how it is used in \matlab.
+begin with the following visualization of a three-dimensional array \(E\) with
+dimensions \(3 \times 4 \times 2\) and discuss how it is used in \matlab.
 
 % Code adapted from: https://tex.stackexchange.com/questions/300109/simple-visualization-of-3d-matrix
 
@@ -606,6 +606,109 @@ less apparent and more interesting syntax present in \mmatlab:
         dimensions.
 
 \end{itemize}
+
+We made an effort to specify each of the statements and expressions according to
+Backus-Naur form, considering the syntax of which each statement or expression
+was composed and instances of overloading. Our next goal was to model the state
+of our program's core matrix data structure so that we could bind syntax to
+semantics. For reasons that we will soon delve into, we did not progress further
+than that step, so our discussion on syntax and semantics ends here. However,
+had we gotten to the point of tying it all together, it would have looked very
+similar to the \textit{Simple Imperative Programs} chapter in \textit{Logical
+Foundations}~\cite{Pierce:SF1}.
+
+\subsection{Blocked by Built-ins}
+
+Thinking that there was no need to re-invent the wheel, we began our journey in
+defining matrix behavior with an exploration into a standard Coq library. Along
+the way, we discovered a number of interesting implementations and proof
+paradigms. Ultimately, we concluded that these would be too difficult to work
+with and that we were better off developing our own implementation. Here we
+discuss the structures from the Coq library that we considered using and the
+limitations that led us away from them.
+
+\subsubsection{Vector}
+
+The natural candidate in the Coq library to use for representing
+multi-dimensional matrices was the \textsf{Vector} type, which was originally
+implemented in the \colorlib\ library~\cite{BLANQUI_2011} and later ported to
+the Coq standard library. We thought that this would be a good abstraction since
+multi-dimensional matrices can have arbitrarily many dimensions and
+\textsf{Vector}s are polymorphic, allowing them to contain other
+\textsf{Vector}s (provided that all contained vectors are of the same type). To
+aid this discussion, the definition of Coq's \textsf{Vector} is stated below:
+
+\begin{verbatim}
+Inductive t A : nat -> Type :=
+| nil : t A 0
+| cons : forall (h:A) (n:nat),
+           t A n -> t A (S n).
+\end{verbatim}
+
+The key thing to make note of is that \textsf{Vector} is a dependent
+type~\cite{Bove2009,Thorsten_2010}; the number of elements in a \textsf{Vector}
+is part of its type, written \texttt{Vector.t A n} for a vector containing \(n\)
+elements of type \(A\)\footnote{The Coq programmer works with dependent types
+all the time, but may not realize it: hypotheses whose types depend on
+quantified variables (\textit{e.g.}, the hypothesis \(H: n \le 0\)) are
+dependently typed as well.}. Since the length of a particular \textsf{Vector} is
+encoded in its type, it is possible to enforce the requirement that all elements
+in a particular dimension have the same length. From here, we devised a scheme
+to stack \textsf{Vector}s to form, \emph{e.g.}, \texttt{Vector.t (Vector.t A m)
+n} such that this we could create matrices of arbitrarily many dimensions, each
+of which has a fixed number of elements. To support this, we defined a
+type-constructor \textsf{matrix} taking a list of dimensions, which represents a
+\textsf{Vector} of \textsf{Vector}s. It can be used as the type of an arbitrary
+\(n\)-dimensional matrix containing elements of type \(A\). This definition is
+as follows:
+
+\begin{verbatim}
+Fixpoint matrix
+        (A: Type) (dims: list nat) :=
+  match dims with
+  | [] => A
+  | head::tail =>
+        Vector.t (matrix A tail) head
+  end.
+
+\end{verbatim}
+
+This definition worked out nicely at first, and we were able to implement
+behavior such as the linearization and element access of a matrix. Although
+possible, this task was non-trivial due to the arbitrary dimensionality of our
+matrices and due to the proof burden imposed on functions over dependent
+types~\cite{SO_2021_1}. Additionally, the existing implementation of element
+access in Coq's \textsf{Vector} type uses the unfamiliar \textsf{Fin} type, an
+abstraction for carrying proofs that a particular number belongs to finite range
+of numbers. In order to access an element of a \textsf{Vector}, one must supply
+such a proof; for our purposes, we use \texttt{Fin.of\_nat}, which gives either
+such a proof or a witness that the number is outside the range. The complexity
+of using the Coq built-ins was quickly growing, and we could deal with it to a
+point but soon ran into trouble while implementing ranged expressions.
+
+\subsubsection{Out of Options}
+
+The problem we experienced while implementing ranged expressions is complex, so
+here we provide an attempt to explain the essence of the problem. The full
+details are available on StackOverflow, where we asked for
+assistance~\cite{SO_2021_2}. The general flavor of the problem is that when
+accessing indices over a range in a matrix, it is impossible to know \textit{a
+priori} the shape of the returned matrix, which in turn informs the returned
+matrix's type (since it is dependently typed based on its dimensionality). This
+computation can be made dynamically for valid ranges, but we run into issues
+when handling degenerate cases---for instance, a range containing values that
+are out of bounds or a list of indices containing the wrong number of indices
+for a particular matrix. In these situations, it is desirable to not return a
+matrix type at all, since the behavior is undefined and will not result in a
+legitimate matrix. The crux of the problem is that with the dependent types, it
+was difficult to specify what dimensions an invalid matrix should have, and the
+general strategy of using \textsf{Option}'s \textsf{Some} and \textsf{None}
+wrappers also did not work because it requires type specification (which is what
+we were having difficulty doing in the first place). Presented with this
+dilemma, we heeded the advice of a commenter on our StackOverflow post, which
+was to eschew dependent types altogether and build our own implementation of
+matrices. The results of doing so encompass the main body of our work, and are
+described in detail in \S~\ref{S:results}.
 
 \section{Results}\label{S:results}
 
@@ -1133,114 +1236,6 @@ above principle. We use it in most proofs by induction on the contents of a
 matrix. Because the induction hypothesis is strengthened, however, we often have
 to make it more general (\textit{e.g.}, by generalizing the shape of the matrix)
 in order to successfully complete the proof.
-
-\section{Old / Superceded}
-
-\subsection{Data Structures and Functions}
-
-Our program is used for image processing; thus, many computations are made on
-images, which are represented as arrays in \matlab\@. Additionally, we deal with
-matrices of images, so we need to model multi-dimensional matrices. Since
-multi-dimensional matrices can have arbitrarily many dimensions, we decided the
-best abstraction for this in Coq would be built on top of the \textsf{Vector}
-type which was originally implemented in the \colorlib\
-library~\cite{BLANQUI_2011} and eventually ported to the Coq standard library.
-In Coq, \textsf{Vector} is a dependent type~\cite{Bove2009,Thorsten_2010}; the
-number of elements in a \textsf{Vector} is part of its type, written
-\texttt{Vector.t A n} for a vector containing \(n\) elements of type \(A\).
-Since \textsf{Vector}s are polymorphic, we noted that a \textsf{Vector} could
-contain \textsf{Vector}s provided they are all the same type (which includes
-length, as noted). That is, we can stack \textsf{Vector}s to form, \emph{e.g.},
-\texttt{Vector.t (Vector.t A m) n}. From there, we defined a type-constructor
-\textsf{Matrix} taking a list of dimensions, which represents a \textsf{Vector}
-of \textsf{Vector}s. It can be used as the type of an arbitrary
-\(n\)-dimensional matrix containing elements of type \(A\).
-
-Due to the implementation of \textsf{Vector} in the Coq standard library, we
-needed to greatly extend the functionality of our \textsf{Matrix} type. To that
-end, we have begun implementing \textsf{Matrix} functions such as element
-access, which is non-trivial for matrices with an arbitrary number of
-dimensions\footnote{In particular because of the dependent types; see also
-\url{https://stackoverflow.com/q/66863226/4400820}}. Additionally, the existing
-implementation of element access in Coq's \textsf{Vector} type uses the
-unfamiliar \textsf{Fin} type, an abstraction for carrying proofs that a
-particular number belongs to finite range of numbers. In order to access an
-element of a \textsf{Vector}, one must supply such a proof; for our purposes, we
-use \texttt{Fin.of\_nat}, which gives either such a proof or a witness that the
-number is outside the range. This behavior is captured by the \textsf{sumbool}
-built-in, which required further research on our behalf. Given the number of
-ways that matrices can be indexed in \matlab\ and the complexity introduced by
-Coq's implementation of \textsf{Vector}s, we see this as the main bottleneck for
-our progress. We still need to implement many \textsf{Matrix} operations, such
-as accesses over ranges and over an entire dimension.
-
-\subsection{Binding Operations and Semantics}
-
-While we have not yet bound any of our functions or data types to the statements
-or expressions in \S~\ref{S:mmatlab}, we have naturally been thinking about them
-throughout the whole process. The functions we write are intended to implement
-the evaluation of the corresponding expressions. In the style of
-\texttt{Imp}~\cite{Pierce:SF1}, we intend to write a deterministic expression
-evaluation function; we will then provide semantics for program execution.
-Execution cannot be defined as a function in Coq because it may be
-non-terminating. We have had to consider what operations are be allowed and
-whether checks for undesired behavior (\emph{e.g.}, dynamic type mismatches)
-should be implemented in the underlying functions or in a semantic check.
-
-
-
-\section{Goals and Timeline}
-
-As we neglected to include them in our original proposal, we now propose the
-following goals, taking into consideration the progress that we have made so far
-with the project:
-
-\begin{enumerate}
-
-    \item \textbf{Minimum Viable Product}: Successful modelling of a majority of
-        the desired features corresponding to matrix operations in \mmatlab\@.
-        Given the lack of multi-dimensional matrix libraries in Coq and the
-        necessary additions of several features in the Coq standard library,
-        this alone would be a notable achievement for us.
-
-    \item \textbf{Desired Goal}: Successful binding of our matrix operations to
-        \mmatlab\ statements and expressions, including the ability to evaluate
-        programs written in \mmatlab\@. A proof of termination, or sketch of
-        one, for our V1 algorithm is provided.
-
-    \item \textbf{Stretch Goal}: All of the above, and the addition of all
-        operations used in V2 and V3 algorithms (most notably, for loops that
-        increment across a range at varying intervals). Proofs that use
-        these features.
-
-\end{enumerate}
-
-Given what we have encountered so far, we propose the following modified
-timeline for project completion.
-
-\begin{itemize}
-    \item \textbf{03/31/21}: Progress Report Due
-    \item \textbf{04/09/21}: Significant progress made on most matrix operations
-        and data structures.
-    \item \textbf{04/16/21}: Binding \mmatlab\ syntax to operations written
-        in Coq; definition of semantics and program evaluator; formal proof
-        specification written.
-    \item \textbf{04/24/21}: Proof(s) should be written or scope adjusted
-        accordingly. All logic should be implemented; edits for readability
-        should be the main changes henceforth.
-    \item \textbf{04/26/21}: Final Proof Due
-    \item \textbf{05/03/21}: Final Paper Due
-    \item \textbf{05/05/21}: Final Presentation Delivered
-\end{itemize}
-
-We provide the following ``diff'' between the scope of our original project
-proposal and our new proposal:
-\begin{itemize}
-    \item Heightened emphasis on implementation of matrix operations, since they
-        are proving to be non-trivial.
-    \item Addition of goal tiers.
-    \item Discussion on Hoare logic.
-\end{itemize}
 
 {\printbibliography}
 
