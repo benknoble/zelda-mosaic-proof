@@ -1129,9 +1129,9 @@ We present these, along with a sketch of their proofs, in order.
 The proof is straightforward by induction on \(\var{ms}\).
 
 \begin{thm}[Computing the shape normalizes it]\label{Th:compute_shape_wf_normalizes}
-    For all matrices \(m\), if \(m\) is well-formed than so is the following
-    matrix: \(\{ \var{shape} = \func{compute\_shape}\, m; \var{contents} =
-    \func{contents}\, m \}\).
+    For all matrices \(m\) with contents \(c\), if \(m\) is well-formed than so
+    is the following matrix: \(\{ \var{shape} = \func{compute\_shape}\, c;
+    \var{contents} = c \}\).
 \end{thm}
 
 \begin{proof}
