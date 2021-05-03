@@ -87,7 +87,7 @@ Chapel Hill, USA \\
 % \begin{IEEEkeywords}
 % \end{IEEEkeywords}
 
-\section{Summary of Proposal}
+\section{Introduction}
 
 We have previously developed \texttt{zelda-mosaic}~\cite{zelda_mosaic} which
 includes \matlab~\cite{matlab} code to create tiled ``mosaics'' from a set of
@@ -207,10 +207,71 @@ separate video-recording~\cite{zelda_mosaic_vid}.
 
 Our original goal was to examine these algorithms as implemented in the \matlab\
 source and prove, if possible, their termination given well-conditioned input.
-With some of the work now behind us, we have a better idea of what this project
-entails and how we will be able to reach the finish line.
+Thus we embarked on developing a Coq model of the mosaic algorithms in order to
+write proofs about them. As we will explain, we did not complete this
+objective---instead, we made progress on the core of the problem: defining
+matrices and their operations. To that extent, we will gloss over the finer
+details of \matlab\ where possible and focus specifically on the relevant matrix
+operations.
 
-\section{Problem Description}
+In the subsequent sections, we cover related work (\S~\ref{S:related_work}),
+describe the problem we tackled (\S~\ref{S:problem_desc}), our approach to
+designing a solution (\S~\ref{S:design}), and our results (\S~\ref{S:results}).
+
+\section{Related Work}\label{S:related_work}
+
+Because we are proving something about code that we have written ourselves,
+there is not a vast body of literature specific to our algorithms from which we
+can draw. There are however a number of related issues exposed by our code,
+which we will discuss here. In particular, the following are of interest and
+have been written about:
+
+\begin{itemize}
+    \item The correctness of \matlab's \textit{cell array} data structure and
+        its representation in Coq;
+    \item The correctness of \matlab's built-in numerical functions and matrix
+        operations; and
+    \item Proving termination of a particular program based on the inputs of the
+        program.
+\end{itemize}
+
+We are not the first group to demonstrate interest in proving properties about
+matrix representations. In the early days of Coq, a
+paper~\cite{magaud:hal-00955444} was published discussing the implementation of
+square matrices in Coq, as well as proofs involving basic operations such as
+addition and multiplication. This paper references \textit{Linear
+Algebra}~\cite{lin_alg}, a Coq library written by a colleague which formalizes a
+well-known linear algebra text~\cite{linear_algebra} and supports matrices with
+a differing number of rows and columns. These implementations are specific to
+two-dimesional matrices, as far as we can tell, and are thus inadequate for the
+manipulation of higher dimensions in our algorithms.
+
+\matlab\ is a closed-source piece of software, and little has been published about
+its correctness. In the official \matlab\ forum, users have demonstrated interest
+in verifying the correctness of \matlab\ algorithms~\cite{duenisch_2013} and the
+\matlab\ staff reassure users that the algorithms have gone through rigorous
+testing, but this assurance does not carry the same weight as a formal
+verification. Indeed, as we have learned, these techniques fall on separate
+parts of a correctness spectrum, with testing demonstrating correctness less
+reliably than formal methods. The lack of related work in the \matlab\ domain
+served as further motivation to obtain results about the correctness of the subset
+of \matlab\ features used in our code.
+
+Program termination is a topic of wide interest in the computing community, as
+it has both practical and of theoretical relevance given the famous halting
+problem. \citeauthor{Cook_2011}~\cite{Cook_2011} argue in their article that
+computer scientists are often hesitant to make claims about the termination of a
+particular program, but that it is often achievable. Their work draws from the
+field of compilers and makes the argument that one can prove the termination of
+a program given certain inputs, provided that there is sufficient analysis of
+the relation between the inputs and the possible paths that may be taken during
+execution\footnote{In many contexts, this involves things like symbolic
+execution (cf. Rosette~\cite{Rosette}).}. Many of the ideas in this work are
+formalized by \citeauthor{BLANQUI_2011} in the \colorlib\ library for Coq,
+which is used primarily for proofs involving rewriting code and program
+termination~\cite{BLANQUI_2011}.
+
+\section{Problem Description}\label{S:problem_desc}
 
 Many non-trivial programs make use of arrays, and our \texttt{zelda-mosaic}
 program is no different. Because our goal was to prove the termination of the
