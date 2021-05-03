@@ -70,8 +70,8 @@ Chapel Hill, USA \\
 \maketitle
 
 \begin{abstract}
-    We report on the development developing matrix algorithms in Coq intended to
-    serve proofs about a subset of \matlab\@. Specifically, we are interested in
+    We report on the development of matrix algorithms in Coq intended to
+    serve as proofs about a subset of \matlab\@. Specifically, we are interested in
     a previous set of algorithms that we developed for building mosaics,
     implemented in \matlab\@. We discuss the formalization of the necessary
     matrix algorithms and the relevant \matlab\ structures in Coq~\cite{Coq}, as
@@ -435,7 +435,7 @@ as ``linearization.''
 
 The process of linearizing a matrix is perhaps better explained with a
 two-dimensional example. Imagine a general two-dimensional \(3 \times 4\) matrix,
-such as the one below, where:
+such as the one below:
 \begin{equation*}
     \begin{bmatrix}
         a & b & c & d \\
@@ -920,7 +920,7 @@ In Coq, we express this definition via a recursive definition
 \(\func{well\_formed'}\) which computes a proposition, or proof-burden, over a
 shape and contents. We wrap this up in a definition \(\func{well\_formed}\),
 which unpacks a matrix for use with \(\func{well\_formed'}\). With this
-definition, we can theorems in terms of matrices that are assumed to be
+definition, we can write theorems in terms of matrices that are assumed to be
 well-formed or that must be shown to be well-formed.
 
 In the course of our development, we discovered that this computational version
