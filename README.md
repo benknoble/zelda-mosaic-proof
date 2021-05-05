@@ -1,8 +1,11 @@
 # Proofs about [zelda-mosaic](https://github.com/benknoble/zelda-mosaic)
 
+[Presentation](https://docs.google.com/presentation/d/1EaC5zwNfbskH0kabnuDZeTFLvrv6lRGhcaaQgWXeWxU/edit?usp=sharing)
+
 Directories:
 - `proposal`: Project proposal
 - `progress-report`: Progress report
+- `paper`: Final paper
 
 Files:
 - `Makefile`: compatible with GNU make to build the project using `coq_makefile`
